@@ -2,41 +2,77 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* Mandi Gefner Digital Insurance Academy — Design System
+ * All colors HSL. RTL-first.
+ */
+
+@font-face {
+  font-family: "Polin";
+  src: url("/src/assets/fonts/Polin-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Polin";
+  src: url("/src/assets/fonts/Polin-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Brand palette */
+    --background: 36 33% 95%;          /* #F7F4EF */
+    --foreground: 0 0% 12%;            /* #1F1F1F */
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 0 0% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 0 0% 12%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 32 89% 53%;             /* #F39A1E orange */
+    --primary-foreground: 0 0% 100%;
+    --primary-dark: 32 84% 46%;        /* #D98212 */
+    --primary-glow: 36 95% 65%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 0 0% 100%;
+    --secondary-foreground: 0 0% 12%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 33 33% 92%;
+    --muted-foreground: 0 0% 42%;      /* #6B6B6B */
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 76 31% 50%;              /* #93A857 olive */
+    --accent-foreground: 0 0% 100%;
+    --accent-light: 58 47% 60%;        /* #C9C56A */
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 30 33% 86%;              /* #E7DDD0 */
+    --input: 30 33% 86%;
+    --ring: 32 89% 53%;
 
-    --radius: 0.5rem;
+    --footer: 0 0% 11%;                /* #1D1D1D */
+    --footer-foreground: 0 0% 88%;
+
+    --radius: 1rem;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary-dark)) 100%);
+    --gradient-organic: radial-gradient(ellipse at 30% 40%, hsl(32 89% 53% / 0.55), transparent 60%),
+                        radial-gradient(ellipse at 70% 60%, hsl(76 31% 50% / 0.45), transparent 60%),
+                        radial-gradient(ellipse at 50% 80%, hsl(58 47% 60% / 0.4), transparent 60%);
+
+    /* Shadows */
+    --shadow-card: 0 2px 12px -4px hsl(30 33% 60% / 0.18);
+    --shadow-card-hover: 0 16px 40px -16px hsl(32 89% 40% / 0.28);
+    --shadow-glow: 0 8px 28px -8px hsl(32 89% 53% / 0.45);
+
+    /* Motion */
+    --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
 
     --sidebar-background: 0 0% 98%;
 
@@ -101,5 +137,31 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+    font-family: "Polin", "Heebo", "Assistant", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
   }
+
+  html { direction: rtl; }
+}
+
+@layer utilities {
+  .bg-gradient-primary { background-image: var(--gradient-primary); }
+  .bg-gradient-organic { background-image: var(--gradient-organic); }
+  .shadow-card { box-shadow: var(--shadow-card); }
+  .shadow-card-hover { box-shadow: var(--shadow-card-hover); }
+  .shadow-glow { box-shadow: var(--shadow-glow); }
+
+  @keyframes float-slow {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+  }
+  @keyframes draw {
+    to { stroke-dashoffset: 0; }
+  }
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate-float { animation: float-slow 6s ease-in-out infinite; }
+  .animate-fade-up { animation: fade-up 0.7s var(--ease-soft) both; }
 }
