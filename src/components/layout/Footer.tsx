@@ -29,7 +29,7 @@ const Footer = () => (
 
     <div className="border-t border-white/10">
       <div className="container flex flex-col-reverse items-center justify-between gap-3 py-5 text-xs text-footer-foreground/70 sm:flex-row">
-        <span>© 2025 כל הזכויות שמורות · מנדי גפנר סוכנות לביטוח</span>
+         <span>© 2026 כל הזכויות שמורות · מנדי גפנר סוכנות לביטוח</span>
          <span>עיצוב ופיתוח אתר: חיה פוגל Csite</span>
       </div>
     </div>
