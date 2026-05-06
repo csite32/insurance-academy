@@ -11,7 +11,6 @@ const Index = () => {
       <main>
         <Hero />
         <StatsSection />
-        <ContinueLearning />
         <CoursesSection />
       </main>
       <Footer />
