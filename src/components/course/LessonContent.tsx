@@ -3,6 +3,7 @@ import type { Lesson } from "@/data/courseDetail";
 import { Button } from "@/components/ui/button";
 import VideoPlayer from "./VideoPlayer";
 import AttachmentsList from "./AttachmentsList";
+import Quiz from "./Quiz";
 
 type Props = {
   lesson: Lesson;
@@ -40,6 +41,8 @@ const LessonContent = ({
     {lesson.attachments && lesson.attachments.length > 0 && (
       <AttachmentsList items={lesson.attachments} />
     )}
+
+    {lesson.quiz && <Quiz quiz={lesson.quiz} />}
 
     <div className="flex flex-wrap items-center gap-3 pt-2">
       <Button
