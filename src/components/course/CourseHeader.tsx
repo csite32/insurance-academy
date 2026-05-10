@@ -14,10 +14,10 @@ const CourseHeader = ({ title, description, completed, total, percent }: Props) 
       <h1 className="text-2xl font-bold md:text-3xl">{title}</h1>
       <p className="mt-2 max-w-3xl text-sm text-muted-foreground md:text-base">{description}</p>
       <div className="mt-5 max-w-xl">
-        <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
-          <span>התקדמות בקורס</span>
-          <span>
-            {completed}/{total} שיעורים · {percent}%
+        <div className="mb-2 flex items-center justify-between text-xs sm:text-sm">
+          <span className="font-semibold text-primary">הושלם {percent}%</span>
+          <span className="text-muted-foreground">
+            {completed}/{total} שיעורים
           </span>
         </div>
         <Progress value={percent} />
