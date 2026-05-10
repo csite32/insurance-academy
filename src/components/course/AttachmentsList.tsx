@@ -1,27 +1,57 @@
-import { Download } from "lucide-react";
+import { Download, Eye } from "lucide-react";
 import type { Attachment } from "@/data/courseDetail";
+import { Button } from "@/components/ui/button";
+
+const fileTypeLabel = (name: string) => {
+  const ext = name.split(".").pop()?.toLowerCase() ?? "";
+  const map: Record<string, string> = {
+    pdf: "PDF",
+    doc: "Word",
+    docx: "Word",
+    xls: "Excel",
+    xlsx: "Excel",
+    ppt: "מצגת",
+    pptx: "מצגת",
+  };
+  return map[ext] ?? ext.toUpperCase();
+};
 
 const AttachmentsList = ({ items }: { items: Attachment[] }) => (
   <section>
-    <h3 className="mb-3 text-lg font-bold">מסמכים מצורפים</h3>
+    <h3 className="mb-3 text-lg font-bold">קבצים מצורפים</h3>
     <div className="grid gap-3 sm:grid-cols-2">
       {items.map((a) => {
         const Icon = a.icon;
         return (
-          <a
+          <div
             key={a.id}
-            href={a.url}
-            className="group flex items-center gap-3 rounded-2xl border border-border bg-card p-4 shadow-card transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-card-hover"
+            className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4 shadow-card transition-all hover:border-primary/40"
           >
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-muted">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-muted">
               <Icon className="h-5 w-5 text-foreground/80" strokeWidth={1.5} />
             </div>
-            <div className="flex-1 min-w-0">
+            <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-semibold">{a.name}</div>
-              {a.size && <div className="text-xs text-muted-foreground">{a.size}</div>}
+              <div className="text-xs text-muted-foreground">
+                {fileTypeLabel(a.name)}
+                {a.size ? ` · ${a.size}` : ""}
+              </div>
             </div>
-            <Download className="h-5 w-5 text-muted-foreground transition-colors group-hover:text-primary" />
-          </a>
+            <div className="flex items-center gap-1.5">
+              <Button asChild size="sm" variant="outline" className="gap-1 px-2.5">
+                <a href={a.url} target="_blank" rel="noreferrer">
+                  <Eye className="h-4 w-4" />
+                  <span className="hidden sm:inline">צפייה</span>
+                </a>
+              </Button>
+              <Button asChild size="sm" className="gap-1 px-2.5">
+                <a href={a.url} download>
+                  <Download className="h-4 w-4" />
+                  <span className="hidden sm:inline">הורדה</span>
+                </a>
+              </Button>
+            </div>
+          </div>
         );
       })}
     </div>
