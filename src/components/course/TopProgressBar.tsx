@@ -5,8 +5,9 @@ type Props = {
 };
 
 const TopProgressBar = ({ completed, total, percent }: Props) => (
-  <div dir="rtl" className="w-full bg-[hsl(0_0%_11%)] text-white">
+  <div dir="rtl" className="w-full">
     <div className="container py-3">
+      <div className="rounded-2xl bg-[hsl(0_0%_11%)] px-5 py-3 text-white shadow-card">
       <div className="mb-2 flex items-center justify-between text-xs sm:text-sm">
         <span className="font-semibold text-[hsl(var(--primary))]">
           הושלם {percent}%
@@ -26,6 +27,7 @@ const TopProgressBar = ({ completed, total, percent }: Props) => (
           className="h-full rounded-full bg-gradient-to-l from-[hsl(var(--primary))] to-[hsl(var(--primary-glow))] transition-[width] duration-500"
           style={{ width: `${percent}%` }}
         />
+      </div>
       </div>
     </div>
   </div>
