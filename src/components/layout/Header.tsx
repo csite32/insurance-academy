@@ -1,10 +1,12 @@
 import { Bell, ChevronDown, LogOut, UserCircle2, Menu, X } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import logo from "@/assets/logo.png";
 
 const navItems = [
   { label: "עמוד בית", href: "/", active: true },
   { label: "הקורסים שלי", href: "#courses" },
+  { label: "צפייה בעמוד קורס לדוגמה", href: "/course/course-1" },
   { label: "אזור אישי", href: "#profile" },
 ];
 

@@ -133,13 +133,15 @@ export const healthCourse: CourseDetail = {
 
 export const courseDetails: Record<string, CourseDetail> = {
   health: healthCourse,
+  // Demo course alias for development/preview
+  "course-1": { ...healthCourse, id: "course-1", title: "קורס דמו — ביטוחי בריאות" },
   // For other course ids from /data/courses we reuse the same mock structure with a different title.
   service: { ...healthCourse, id: "service", title: "קורס שירות לקוחות" },
   elementary: { ...healthCourse, id: "elementary", title: "קורס אלמנטרי" },
   sales: { ...healthCourse, id: "sales", title: "קורס מכירות" },
-  private: { ...healthCourse, id: "private", title: "קורס מוצרי פרט", assignedUserIds: [] },
+  private: { ...healthCourse, id: "private", title: "קורס מוצרי פרט" },
   finance: { ...healthCourse, id: "finance", title: "קורס פיננסים" },
-  pension: { ...healthCourse, id: "pension", title: "קורס פנסיה וגמל", assignedUserIds: [] },
+  pension: { ...healthCourse, id: "pension", title: "קורס פנסיה וגמל" },
 };
 
 // Flatten helper
