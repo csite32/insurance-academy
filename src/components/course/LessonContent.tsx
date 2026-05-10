@@ -42,7 +42,7 @@ const LessonContent = ({
       <AttachmentsList items={lesson.attachments} />
     )}
 
-    {lesson.quiz && <Quiz quiz={lesson.quiz} />}
+    {lesson.quiz && <Quiz quiz={lesson.quiz} lessonCompleted={isCompleted} />}
 
     <div className="flex flex-wrap items-center gap-3 pt-2">
       <Button
