@@ -1,0 +1,127 @@
+import { useEffect, useMemo, useState } from "react";
+import { useParams } from "react-router-dom";
+import { ListOrdered } from "lucide-react";
+import Header from "@/components/layout/Header";
+import Footer from "@/components/layout/Footer";
+import CourseHeader from "@/components/course/CourseHeader";
+import LessonSidebar from "@/components/course/LessonSidebar";
+import LessonContent from "@/components/course/LessonContent";
+import CompletionCard from "@/components/course/CompletionCard";
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { courseDetails, currentUser, getFlatLessons } from "@/data/courseDetail";
+import { useCourseProgress } from "@/hooks/useCourseProgress";
+
+const CoursePage = () => {
+  const { id = "" } = useParams();
+  const course = courseDetails[id] ?? courseDetails["course-1"];
+
+  const flatLessons = useMemo(() => getFlatLessons(course), [course]);
+  const total = flatLessons.length;
+
+  const { progress, setLastLesson, toggleComplete, percent, completedCount } =
+    useCourseProgress(currentUser.id, course.id, total);
+
+  const initialLessonId = progress.lastLessonId ?? flatLessons[0]?.id ?? "";
+  const [activeId, setActiveId] = useState(initialLessonId);
+
+  useEffect(() => {
+    if (activeId) setLastLesson(activeId);
+  }, [activeId, setLastLesson]);
+
+  const activeIndex = flatLessons.findIndex((l) => l.id === activeId);
+  const activeLesson = flatLessons[activeIndex] ?? flatLessons[0];
+
+  const isLessonLocked = (lessonId: string) => {
+    if (course.learningMode === "free") return false;
+    const idx = flatLessons.findIndex((l) => l.id === lessonId);
+    if (idx <= 0) return false;
+    for (let i = 0; i < idx; i++) {
+      if (!progress.completedLessonIds.includes(flatLessons[i].id)) return true;
+    }
+    return false;
+  };
+
+  const goPrev = () => {
+    if (activeIndex > 0) setActiveId(flatLessons[activeIndex - 1].id);
+  };
+  const goNext = () => {
+    const next = flatLessons[activeIndex + 1];
+    if (next && !isLessonLocked(next.id)) setActiveId(next.id);
+  };
+
+  const nextLesson = flatLessons[activeIndex + 1];
+  const nextLocked = nextLesson ? isLessonLocked(nextLesson.id) : false;
+
+  const handleSelect = (lid: string) => {
+    if (isLessonLocked(lid)) return;
+    setActiveId(lid);
+  };
+
+  const isCompleted = activeLesson
+    ? progress.completedLessonIds.includes(activeLesson.id)
+    : false;
+  const courseDone = progress.status === "completed";
+
+  const sidebar = (
+    <LessonSidebar
+      chapters={course.chapters}
+      activeLessonId={activeId}
+      completedIds={progress.completedLessonIds}
+      isLessonLocked={isLessonLocked}
+      onSelect={handleSelect}
+    />
+  );
+
+  return (
+    <div dir="rtl" className="min-h-screen bg-background">
+      <Header />
+      <CourseHeader
+        title={course.title}
+        description={course.description}
+        completed={completedCount}
+        total={total}
+        percent={percent}
+      />
+
+      <main className="container py-8">
+        <div className="mb-4 lg:hidden">
+          <Sheet>
+            <SheetTrigger className="flex w-full items-center justify-center gap-2 rounded-full border border-border bg-card px-4 py-3 text-sm font-semibold shadow-card">
+              <ListOrdered className="h-4 w-4" />
+              רשימת שיעורים
+            </SheetTrigger>
+            <SheetContent side="right" className="w-[88vw] max-w-sm overflow-y-auto bg-background p-4">
+              <SheetHeader>
+                <SheetTitle className="text-right">תוכן הקורס</SheetTitle>
+              </SheetHeader>
+              <div className="mt-4">{sidebar}</div>
+            </SheetContent>
+          </Sheet>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
+          <div className="hidden lg:block">{sidebar}</div>
+          <div className="min-w-0 space-y-8">
+            {activeLesson && (
+              <LessonContent
+                lesson={activeLesson}
+                isCompleted={isCompleted}
+                onToggleComplete={() => toggleComplete(activeLesson.id)}
+                onPrev={goPrev}
+                onNext={goNext}
+                hasPrev={activeIndex > 0}
+                hasNext={!!nextLesson}
+                nextLocked={nextLocked}
+              />
+            )}
+            {courseDone && <CompletionCard />}
+          </div>
+        </div>
+      </main>
+
+      <Footer />
+    </div>
+  );
+};
+
+export default CoursePage;
