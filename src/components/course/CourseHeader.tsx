@@ -1,5 +1,3 @@
-import { Progress } from "@/components/ui/progress";
-
 type Props = {
   title: string;
   description: string;
@@ -20,7 +18,18 @@ const CourseHeader = ({ title, description, completed, total, percent }: Props) 
             {completed}/{total} שיעורים
           </span>
         </div>
-        <Progress value={percent} />
+        <div
+          role="progressbar"
+          aria-valuenow={percent}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          className="h-2.5 w-full overflow-hidden rounded-full bg-muted"
+        >
+          <div
+            className="h-full rounded-full bg-gradient-to-l from-primary to-[hsl(var(--primary-glow))] transition-[width] duration-500 ease-out"
+            style={{ width: `${percent}%`, marginInlineStart: 0 }}
+          />
+        </div>
       </div>
     </div>
   </section>
