@@ -54,17 +54,17 @@ const LessonSidebar = ({ chapters, activeLessonId, completedIds, isLessonLocked,
                           locked && "bg-muted text-muted-foreground"
                         )}
                       >
-                        {locked ? (
-                          <Lock className="h-3.5 w-3.5" />
-                        ) : isDone ? (
-                          <Check className="h-4 w-4" strokeWidth={3} />
-                        ) : (
-                          num
-                        )}
+                        {num}
                       </span>
                       <span className={cn("flex-1 truncate", locked && "text-muted-foreground")}>
                         {l.title}
                       </span>
+                      {isDone && !locked && (
+                        <Check className="h-4 w-4 shrink-0 text-accent" strokeWidth={3} />
+                      )}
+                      {locked && (
+                        <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      )}
                     </button>
                   </li>
                 );
