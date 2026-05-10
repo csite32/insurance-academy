@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { FileText, FileSpreadsheet, FileBadge } from "lucide-react";
+import { FileText, FileSpreadsheet, FileType2 } from "lucide-react";
 
 export type Attachment = {
   id: string;
@@ -49,8 +49,8 @@ export type CourseDetail = {
 
 const sampleAttachments: Attachment[] = [
   { id: "a1", name: "מצגת השיעור.pdf", size: "1.2MB", url: "#", icon: FileText },
-  { id: "a2", name: "טופס הצעה.xlsx", size: "84KB", url: "#", icon: FileSpreadsheet },
-  { id: "a3", name: "תקנון מוצר.pdf", size: "640KB", url: "#", icon: FileBadge },
+  { id: "a2", name: "דף עבודה.docx", size: "84KB", url: "#", icon: FileType2 },
+  { id: "a3", name: "טבלת השוואה.pdf", size: "640KB", url: "#", icon: FileSpreadsheet },
 ];
 
 const make = (
@@ -66,9 +66,9 @@ const make = (
   content:
     "בשיעור זה נסקור את עקרונות היסוד של הנושא, נכיר מושגים מרכזיים ונראה דוגמאות מעשיות מהשטח. בסוף השיעור תדעו ליישם את התכנים בעבודה היומיומית מול הלקוח, להציע פתרונות מותאמים, ולהציג את היתרונות בצורה ברורה ומקצועית.",
   videoUrl: "https://player.vimeo.com/video/76979871",
-  attachments: lessonIdx % 2 === 0 ? sampleAttachments.slice(0, 2) : undefined,
+  attachments: lessonIdx % 2 === 0 ? sampleAttachments : sampleAttachments.slice(0, 2),
   quiz:
-    lessonIdx === 3
+    lessonIdx % 2 === 1
       ? {
           question: "מהו רכיב הליבה בביטוח בריאות פרטי?",
           options: [
