@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Check, Lock, RotateCcw } from "lucide-react";
+import { useState } from "react";
+import { Check, ChevronLeft, Lock, RotateCcw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Quiz as QuizType } from "@/data/courseDetail";
@@ -12,15 +12,19 @@ type Props = {
 const Quiz = ({ quiz, lessonCompleted }: Props) => {
   const locked = quiz.isUnlockedAfterLessonCompletion && !lessonCompleted;
 
-  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const [selected, setSelected] = useState<string | null>(null);
   const [checked, setChecked] = useState(false);
+  const [correctCount, setCorrectCount] = useState(0);
+  const [finished, setFinished] = useState(false);
 
-  const allAnswered = quiz.questions.every((q) => answers[q.id]);
-  const score = useMemo(
-    () => quiz.questions.filter((q) => answers[q.id] === q.correctAnswer).length,
-    [answers, quiz.questions]
-  );
-  const allCorrect = checked && score === quiz.questions.length;
+  const reset = () => {
+    setCurrentIdx(0);
+    setSelected(null);
+    setChecked(false);
+    setCorrectCount(0);
+    setFinished(false);
+  };
 
   if (locked) {
     return (
@@ -36,109 +40,141 @@ const Quiz = ({ quiz, lessonCompleted }: Props) => {
     );
   }
 
-  const onSelect = (qid: string, ans: string) => {
-    if (checked) return;
-    setAnswers((p) => ({ ...p, [qid]: ans }));
+  const total = quiz.questions.length;
+
+  if (finished) {
+    const percent = Math.round((correctCount / total) * 100);
+    const success = percent >= 60;
+    return (
+      <section className="rounded-2xl border border-border bg-card p-6 text-center shadow-card">
+        <div
+          className={cn(
+            "mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full",
+            success ? "bg-accent/15 text-accent" : "bg-destructive/10 text-destructive"
+          )}
+        >
+          {success ? <Check className="h-6 w-6" /> : <X className="h-6 w-6" />}
+        </div>
+        <h3 className="text-xl font-bold">סיכום החידון</h3>
+        <p className="mt-2 text-sm text-muted-foreground">
+          ענית נכון על {correctCount} מתוך {total} שאלות
+        </p>
+        <p className={cn("mt-1 text-2xl font-bold", success ? "text-accent" : "text-destructive")}>
+          {percent}%
+        </p>
+        <p className="mt-2 text-sm font-semibold">
+          {success ? "כל הכבוד! עברת את החידון בהצלחה 🎉" : "כמעט שם — נסה שוב"}
+        </p>
+        <Button onClick={reset} variant="outline" className="mt-4 gap-2">
+          <RotateCcw className="h-4 w-4" />
+          נסה שוב
+        </Button>
+      </section>
+    );
+  }
+
+  const q = quiz.questions[currentIdx];
+  const progress = Math.round(((currentIdx + (checked ? 1 : 0)) / total) * 100);
+  const isCorrect = checked && selected === q.correctAnswer;
+  const isWrong = checked && selected !== q.correctAnswer;
+
+  const onCheck = () => {
+    if (!selected) return;
+    setChecked(true);
+    if (selected === q.correctAnswer) setCorrectCount((c) => c + 1);
   };
 
-  const onCheck = () => setChecked(true);
-  const onReset = () => {
-    setChecked(false);
-    setAnswers({});
+  const onNext = () => {
+    if (currentIdx + 1 >= total) {
+      setFinished(true);
+    } else {
+      setCurrentIdx((i) => i + 1);
+      setSelected(null);
+      setChecked(false);
+    }
   };
 
   return (
     <section className="rounded-2xl border border-border bg-card p-5 shadow-card">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-bold">{quiz.title}</h3>
-          <p className="text-xs text-muted-foreground">
-            {quiz.questions.length} שאלות
-          </p>
-        </div>
-        {checked && allCorrect && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-accent/15 px-3 py-1 text-xs font-semibold text-accent">
-            <Check className="h-3.5 w-3.5" />
-            החידון הושלם
-          </span>
-        )}
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-lg font-bold">{quiz.title}</h3>
+        <span className="text-xs font-semibold text-muted-foreground">
+          שאלה {currentIdx + 1} מתוך {total}
+        </span>
       </div>
 
-      <ol className="space-y-5">
-        {quiz.questions.map((q, idx) => {
-          const selected = answers[q.id];
+      <div className="mb-5 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+        <div
+          className="h-full rounded-full bg-primary transition-[width] duration-300"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+
+      <p className="mb-4 font-semibold">{q.question}</p>
+
+      <ul className="space-y-2">
+        {q.answers.map((ans) => {
+          const isSelected = selected === ans;
+          const showCorrect = checked && ans === q.correctAnswer;
+          const showWrong = checked && isSelected && ans !== q.correctAnswer;
           return (
-            <li key={q.id} className="space-y-2">
-              <p className="font-semibold">
-                {idx + 1}. {q.question}
-              </p>
-              <ul className="space-y-2">
-                {q.answers.map((ans) => {
-                  const isSelected = selected === ans;
-                  const showCorrect = checked && ans === q.correctAnswer;
-                  const showWrong =
-                    checked && isSelected && ans !== q.correctAnswer;
-                  return (
-                    <li key={ans}>
-                      <button
-                        type="button"
-                        onClick={() => onSelect(q.id, ans)}
-                        disabled={checked}
-                        className={cn(
-                          "flex w-full items-center gap-3 rounded-xl border px-4 py-2.5 text-right text-sm transition-colors",
-                          isSelected
-                            ? "border-primary bg-primary/5"
-                            : "border-border bg-background hover:bg-muted",
-                          showCorrect && "border-accent bg-accent/10",
-                          showWrong && "border-destructive bg-destructive/10"
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            "flex h-5 w-5 items-center justify-center rounded-full border",
-                            isSelected
-                              ? "border-primary"
-                              : "border-muted-foreground/40"
-                          )}
-                        >
-                          {isSelected && (
-                            <span className="h-2.5 w-2.5 rounded-full bg-primary" />
-                          )}
-                        </span>
-                        <span className="flex-1">{ans}</span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
+            <li key={ans}>
+              <button
+                type="button"
+                onClick={() => !checked && setSelected(ans)}
+                disabled={checked}
+                className={cn(
+                  "flex w-full items-center gap-3 rounded-xl border px-4 py-2.5 text-right text-sm transition-colors",
+                  isSelected ? "border-primary bg-primary/5" : "border-border bg-background hover:bg-muted",
+                  showCorrect && "border-accent bg-accent/10",
+                  showWrong && "border-destructive bg-destructive/10",
+                  checked && "cursor-not-allowed"
+                )}
+              >
+                <span
+                  className={cn(
+                    "flex h-5 w-5 items-center justify-center rounded-full border",
+                    isSelected ? "border-primary" : "border-muted-foreground/40"
+                  )}
+                >
+                  {isSelected && <span className="h-2.5 w-2.5 rounded-full bg-primary" />}
+                </span>
+                <span className="flex-1">{ans}</span>
+              </button>
             </li>
           );
         })}
-      </ol>
+      </ul>
 
-      <div className="mt-5 flex flex-wrap items-center gap-3">
+      {checked && (
+        <div
+          className={cn(
+            "mt-4 rounded-xl border p-3 text-sm font-semibold",
+            isCorrect
+              ? "border-accent/40 bg-accent/10 text-accent"
+              : "border-destructive/40 bg-destructive/10 text-destructive"
+          )}
+        >
+          {isCorrect ? (
+            <span>תשובה נכונה! 🎉</span>
+          ) : (
+            <span>
+              תשובה שגויה. התשובה הנכונה: <span className="font-bold">{q.correctAnswer}</span>
+            </span>
+          )}
+        </div>
+      )}
+
+      <div className="mt-5 flex items-center gap-3">
         {!checked ? (
-          <Button onClick={onCheck} disabled={!allAnswered}>
-            בדיקת תשובות
+          <Button onClick={onCheck} disabled={!selected}>
+            בדיקת תשובה
           </Button>
         ) : (
-          <Button variant="outline" onClick={onReset} className="gap-2">
-            <RotateCcw className="h-4 w-4" />
-            נסה שוב
+          <Button onClick={onNext} className="gap-1">
+            {currentIdx + 1 >= total ? "סיום החידון" : "לשאלה הבאה"}
+            <ChevronLeft className="h-4 w-4" />
           </Button>
-        )}
-
-        {checked && (
-          <span
-            className={cn(
-              "text-sm font-semibold",
-              allCorrect ? "text-accent" : "text-destructive"
-            )}
-          >
-            {allCorrect
-              ? `כל הכבוד! ${score}/${quiz.questions.length} תשובות נכונות 🎉`
-              : `ענית נכון על ${score} מתוך ${quiz.questions.length}, נסה שוב.`}
-          </span>
         )}
       </div>
     </section>
