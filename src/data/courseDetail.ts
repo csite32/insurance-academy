@@ -9,12 +9,16 @@ export type Attachment = {
   icon: LucideIcon;
 };
 
-export type QuizOption = { id: string; text: string };
-export type Quiz = {
+export type QuizQuestion = {
+  id: string;
   question: string;
-  options: QuizOption[];
-  correctOptionId: string;
-  requiredToComplete?: boolean;
+  answers: string[];
+  correctAnswer: string;
+};
+export type Quiz = {
+  title: string;
+  isUnlockedAfterLessonCompletion: boolean;
+  questions: QuizQuestion[];
 };
 
 export type Lesson = {
@@ -70,15 +74,38 @@ const make = (
   quiz:
     lessonIdx % 2 === 1
       ? {
-          question: "מהו רכיב הליבה בביטוח בריאות פרטי?",
-          options: [
-            { id: "o1", text: "כיסוי תרופות מחוץ לסל" },
-            { id: "o2", text: "ביטוח רכב חובה" },
-            { id: "o3", text: "ביטוח דירה מבנה" },
-            { id: "o4", text: "ביטוח אובדן כושר עבודה" },
+          title: "חידון קצר לסיכום השיעור",
+          isUnlockedAfterLessonCompletion: true,
+          questions: [
+            {
+              id: "q1",
+              question: "מהו רכיב הליבה בביטוח בריאות פרטי?",
+              answers: [
+                "כיסוי תרופות מחוץ לסל",
+                "ביטוח רכב חובה",
+                "ביטוח דירה מבנה",
+                "ביטוח אובדן כושר עבודה",
+              ],
+              correctAnswer: "כיסוי תרופות מחוץ לסל",
+            },
+            {
+              id: "q2",
+              question: "מהו תפקידו המרכזי של סוכן הביטוח בתהליך המכירה?",
+              answers: [
+                "להציע את המוצר הזול ביותר",
+                "להתאים פתרון לצרכי הלקוח",
+                "לסגור עסקה במהירות האפשרית",
+                "לשלוח טפסים בלבד",
+              ],
+              correctAnswer: "להתאים פתרון לצרכי הלקוח",
+            },
+            {
+              id: "q3",
+              question: "איזה מסמך חיוני לצירוף בעת הגשת הצעה?",
+              answers: ["הצהרת בריאות", "תלוש משכורת", "חוזה שכירות", "תעודת זהות בלבד"],
+              correctAnswer: "הצהרת בריאות",
+            },
           ],
-          correctOptionId: "o1",
-          requiredToComplete: false,
         }
       : undefined,
   ...opts,
