@@ -8,7 +8,6 @@ import LessonSidebar from "@/components/course/LessonSidebar";
 import LessonContent from "@/components/course/LessonContent";
 import CompletionCard from "@/components/course/CompletionCard";
 import SimulatorCard from "@/components/course/SimulatorCard";
-import TopProgressBar from "@/components/course/TopProgressBar";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { courseDetails, currentUser, getFlatLessons } from "@/data/courseDetail";
 import { useCourseProgress } from "@/hooks/useCourseProgress";
@@ -77,7 +76,6 @@ const CoursePage = () => {
   return (
     <div dir="rtl" className="min-h-screen bg-background">
       <Header />
-      <TopProgressBar completed={completedCount} total={total} percent={percent} />
       <CourseHeader
         title={course.title}
         description={course.description}
