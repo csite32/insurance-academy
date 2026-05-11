@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { adminStore } from "@/data/adminStore";
 
 export type Role = "user" | "admin";
 
@@ -13,22 +14,6 @@ export type AuthUser = {
   progress: number;
   avatarUrl?: string | null;
 };
-
-type MockRecord = AuthUser & { password: string };
-
-const MOCK_USERS: MockRecord[] = [
-  {
-    id: "user-demo",
-    fullName: "יוסי לוי",
-    email: "demo@academy.co.il",
-    password: "123456",
-    role: "user",
-    assignedCourses: ["service", "elementary", "sales", "finance"],
-    completedLessons: [],
-    lastViewedLesson: null,
-    progress: 0,
-  },
-];
 
 const STORAGE_KEY = "auth:user";
 const AVATAR_KEY = (userId: string) => `auth:avatar:${userId}`;
@@ -50,17 +35,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setUser(JSON.parse(raw));
+      if (raw) {
+        const parsed = JSON.parse(raw) as AuthUser;
+        // refresh assigned courses from admin store
+        parsed.assignedCourses = adminStore.assignedCoursesFor(parsed.id);
+        setUser(parsed);
+      }
     } catch {
       /* ignore */
     }
     setLoading(false);
   }, []);
 
+  // keep user.assignedCourses in sync with admin store changes
+  useEffect(() => {
+    return adminStore.subscribe(() => {
+      setUser((prev) => {
+        if (!prev) return prev;
+        const next = {
+          ...prev,
+          assignedCourses: adminStore.assignedCoursesFor(prev.id),
+        };
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        } catch {
+          /* ignore */
+        }
+        return next;
+      });
+    });
+  }, []);
+
   const login = (email: string, password: string) => {
-    const found = MOCK_USERS.find(
-      (u) => u.email.toLowerCase() === email.trim().toLowerCase() && u.password === password
-    );
+    const found = adminStore.authenticate(email, password);
     if (!found) return { ok: false, error: "אימייל או סיסמה שגויים" };
     const { password: _pw, ...safe } = found;
     let storedAvatar: string | null = null;
@@ -69,7 +76,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch {
       /* ignore */
     }
-    const withAvatar = { ...safe, avatarUrl: storedAvatar };
+    const withAvatar: AuthUser = {
+      ...safe,
+      assignedCourses: adminStore.assignedCoursesFor(safe.id),
+      completedLessons: [],
+      lastViewedLesson: null,
+      progress: 0,
+      avatarUrl: storedAvatar,
+    };
     setUser(withAvatar);
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(withAvatar));
