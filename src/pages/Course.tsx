@@ -10,13 +10,22 @@ import CompletionCard from "@/components/course/CompletionCard";
 import SimulatorCard from "@/components/course/SimulatorCard";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { courseDetails, currentUser, getFlatLessons } from "@/data/courseDetail";
+import { buildCourseDetailFromStore } from "@/data/courseFromStore";
+import { useAdminStore } from "@/data/adminStore";
 import { useCourseProgress } from "@/hooks/useCourseProgress";
 import { useAuth } from "@/contexts/AuthContext";
 
 const CoursePage = () => {
   const { id = "" } = useParams();
   const { user } = useAuth();
-  const course = courseDetails[id] ?? courseDetails["course-1"];
+  // Re-render when admin store changes
+  useAdminStore((s) => s.courses);
+  useAdminStore((s) => s.chapters);
+  useAdminStore((s) => s.lessons);
+  const course =
+    buildCourseDetailFromStore(id) ??
+    courseDetails[id] ??
+    courseDetails["course-1"];
 
   const flatLessons = useMemo(() => getFlatLessons(course), [course]);
   const total = flatLessons.length;

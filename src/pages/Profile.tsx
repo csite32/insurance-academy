@@ -14,8 +14,7 @@ import {
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { useAuth } from "@/contexts/AuthContext";
-import { courses } from "@/data/courses";
-import { courseDetails, getFlatLessons } from "@/data/courseDetail";
+import { useAdminStore, getIcon } from "@/data/adminStore";
 import type { CourseProgress, CourseStatus } from "@/hooks/useCourseProgress";
 
 type CourseRow = {
@@ -54,16 +53,17 @@ const statusClasses: Record<CourseStatus, string> = {
 
 const Profile = () => {
   const { user, updateAvatar } = useAuth();
+  const adminCourses = useAdminStore((s) => s.courses);
+  const adminLessons = useAdminStore((s) => s.lessons);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   const rows: CourseRow[] = useMemo(() => {
     if (!user) return [];
-    return courses
+    return adminCourses
       .filter((c) => user.assignedCourses.includes(c.id))
       .map((c) => {
-        const detail = courseDetails[c.id];
-        const totalLessons = detail ? getFlatLessons(detail).length : c.lessons;
+        const totalLessons = adminLessons.filter((l) => l.courseId === c.id).length;
         const p = readProgress(user.id, c.id);
         const completedLessons = p?.completedLessonIds.length ?? 0;
         const percent =
@@ -74,7 +74,7 @@ const Profile = () => {
           id: c.id,
           title: c.title,
           description: c.description,
-          icon: c.icon,
+          icon: getIcon(c.iconKey),
           totalLessons,
           completedLessons,
           percent,
@@ -83,7 +83,7 @@ const Profile = () => {
           startedAt: p?.startedAt ?? null,
         };
       });
-  }, [user]);
+  }, [user, adminCourses, adminLessons]);
 
   if (!user) return null;
 
@@ -101,13 +101,13 @@ const Profile = () => {
 
   let continueLessonTitle = "";
   if (continueCourse) {
-    const detail = courseDetails[continueCourse.id];
-    if (detail) {
-      const flat = getFlatLessons(detail);
-      const lesson =
-        flat.find((l) => l.id === continueCourse.lastLessonId) ?? flat[0];
-      continueLessonTitle = lesson?.title ?? "";
-    }
+    const courseLessons = adminLessons
+      .filter((l) => l.courseId === continueCourse.id)
+      .sort((a, b) => a.order - b.order);
+    const lesson =
+      courseLessons.find((l) => l.id === continueCourse.lastLessonId) ??
+      courseLessons[0];
+    continueLessonTitle = lesson?.title ?? "";
   }
 
   const onPickFile = () => fileInputRef.current?.click();

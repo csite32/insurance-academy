@@ -8,6 +8,13 @@ import NotFound from "./pages/NotFound.tsx";
 import Course from "./pages/Course.tsx";
 import Login from "./pages/Login.tsx";
 import Profile from "./pages/Profile.tsx";
+import AdminDashboard from "./pages/admin/AdminDashboard.tsx";
+import AdminCourses from "./pages/admin/AdminCourses.tsx";
+import AdminChapters from "./pages/admin/AdminChapters.tsx";
+import AdminLessons from "./pages/admin/AdminLessons.tsx";
+import AdminUsers from "./pages/admin/AdminUsers.tsx";
+import AdminAssignments from "./pages/admin/AdminAssignments.tsx";
+import AdminProtectedRoute from "./components/admin/AdminProtectedRoute";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 
@@ -44,6 +51,54 @@ const App = () => (
                 <ProtectedRoute>
                   <Profile />
                 </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <AdminProtectedRoute>
+                  <AdminDashboard />
+                </AdminProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/courses"
+              element={
+                <AdminProtectedRoute>
+                  <AdminCourses />
+                </AdminProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/chapters"
+              element={
+                <AdminProtectedRoute>
+                  <AdminChapters />
+                </AdminProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/lessons"
+              element={
+                <AdminProtectedRoute>
+                  <AdminLessons />
+                </AdminProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/users"
+              element={
+                <AdminProtectedRoute>
+                  <AdminUsers />
+                </AdminProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/assignments"
+              element={
+                <AdminProtectedRoute>
+                  <AdminAssignments />
+                </AdminProtectedRoute>
               }
             />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

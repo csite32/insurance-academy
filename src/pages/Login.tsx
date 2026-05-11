@@ -91,9 +91,10 @@ const Login = () => {
           </form>
         </div>
 
-        <p className="mt-6 text-center text-xs text-muted-foreground">
-          משתמש דמו: demo@academy.co.il / 123456
-        </p>
+        <div className="mt-6 text-center text-xs text-muted-foreground space-y-1">
+          <p>משתמש דמו: demo@academy.co.il / 123456</p>
+          <p>מנהל: admin@academy.co.il / 123456</p>
+        </div>
       </div>
     </div>
   );
