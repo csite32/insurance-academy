@@ -1,10 +1,11 @@
 import CourseCard from "./CourseCard";
 import SectionTitle from "./SectionTitle";
 import { useAuth } from "@/contexts/AuthContext";
-import { useAdminStore, getIcon } from "@/data/adminStore";
+import { useAdminStore, useAdminStoreHydration, getIcon } from "@/data/adminStore";
 import type { Course } from "@/data/courses";
 
 const CoursesSection = () => {
+  useAdminStoreHydration();
   const { user } = useAuth();
   const courses = useAdminStore((s) => s.courses);
   const lessons = useAdminStore((s) => s.lessons);
