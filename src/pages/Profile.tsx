@@ -218,17 +218,6 @@ const Profile = () => {
                   <p className="text-xs text-destructive">{uploadError}</p>
                 )}
               </div>
-
-              <div className="mt-5 grid grid-cols-2 gap-3 w-full">
-                <div className="rounded-2xl bg-muted p-3">
-                  <p className="text-[11px] text-muted-foreground">קורסים</p>
-                  <p className="text-lg font-bold text-foreground">{rows.length}</p>
-                </div>
-                <div className="rounded-2xl bg-muted p-3">
-                  <p className="text-[11px] text-muted-foreground">התקדמות</p>
-                  <p className="text-lg font-bold text-primary">{overall}%</p>
-                </div>
-              </div>
             </div>
           </div>
 
