@@ -238,7 +238,7 @@ const Profile = () => {
                   <p className="text-3xl md:text-5xl font-extrabold text-foreground leading-none tracking-tight">
                     {s.value}
                   </p>
-                  <p className="text-muted-foreground mt-3 md:mt-4 md:text-base leading-tight text-sm">
+                  <p className="text-muted-foreground mt-3 md:mt-4 md:text-base leading-tight text-sm min-h-[2.5em] flex items-center justify-center md:min-h-0 md:block">
                     {s.label}
                   </p>
                 </div>
