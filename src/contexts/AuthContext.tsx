@@ -37,9 +37,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as AuthUser;
-        // refresh assigned courses from admin store
-        parsed.assignedCourses = adminStore.assignedCoursesFor(parsed.id);
-        setUser(parsed);
+        const sourceUser = adminStore.getUserById(parsed.id);
+        if (sourceUser) {
+          setUser({
+            id: sourceUser.id,
+            fullName: sourceUser.fullName,
+            email: sourceUser.email,
+            role: sourceUser.role,
+            assignedCourses: adminStore.assignedCoursesFor(sourceUser.id),
+            completedLessons: parsed.completedLessons ?? [],
+            lastViewedLesson: parsed.lastViewedLesson ?? null,
+            progress: parsed.progress ?? 0,
+            avatarUrl: parsed.avatarUrl ?? localStorage.getItem(AVATAR_KEY(sourceUser.id)),
+          });
+        }
       }
     } catch {
       /* ignore */
@@ -52,8 +63,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const unsub = adminStore.subscribe(() => {
       setUser((prev) => {
         if (!prev) return prev;
+        const sourceUser = adminStore.getUserById(prev.id);
+        if (!sourceUser) {
+          try {
+            localStorage.removeItem(STORAGE_KEY);
+          } catch {
+            /* ignore */
+          }
+          return null;
+        }
         const next = {
           ...prev,
+          fullName: sourceUser.fullName,
+          email: sourceUser.email,
+          role: sourceUser.role,
           assignedCourses: adminStore.assignedCoursesFor(prev.id),
         };
         try {
@@ -73,8 +96,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const found = adminStore.authenticate(email, password);
     if (!found) return { ok: false, error: "אימייל או סיסמה שגויים" };
     const { password: _pw, ...safe } = found;
+    let existing: Partial<AuthUser> | null = null;
     let storedAvatar: string | null = null;
     try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      existing = raw ? (JSON.parse(raw) as Partial<AuthUser>) : null;
       storedAvatar = localStorage.getItem(AVATAR_KEY(safe.id));
     } catch {
       /* ignore */
@@ -82,9 +108,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const withAvatar: AuthUser = {
       ...safe,
       assignedCourses: adminStore.assignedCoursesFor(safe.id),
-      completedLessons: [],
-      lastViewedLesson: null,
-      progress: 0,
+      completedLessons: existing?.id === safe.id ? (existing.completedLessons ?? []) : [],
+      lastViewedLesson: existing?.id === safe.id ? (existing.lastViewedLesson ?? null) : null,
+      progress: existing?.id === safe.id ? (existing.progress ?? 0) : 0,
       avatarUrl: storedAvatar,
     };
     setUser(withAvatar);
