@@ -242,13 +242,13 @@ const Profile = () => {
             ].map((s) => (
               <div
                 key={s.label}
-                className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-card-hover"
+                className="flex items-center rounded-2xl border border-border bg-card p-4 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-card-hover px-[16px] gap-[12px]"
               >
                 <div className="flex-1 text-right">
                   <p className="text-2xl md:text-[1.65rem] font-extrabold text-foreground leading-none tracking-tight">
                     {s.value}
                   </p>
-                  <p className="text-[11px] text-muted-foreground mt-1.5 leading-none">
+                  <p className="text-muted-foreground mt-1.5 leading-none text-base">
                     {s.label}
                   </p>
                 </div>
