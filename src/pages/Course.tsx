@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
-import { ListOrdered } from "lucide-react";
+import { Link, useParams } from "react-router-dom";
+import { ListOrdered, Lock } from "lucide-react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import CourseHeader from "@/components/course/CourseHeader";
@@ -9,7 +9,7 @@ import LessonContent from "@/components/course/LessonContent";
 import CompletionCard from "@/components/course/CompletionCard";
 import SimulatorCard from "@/components/course/SimulatorCard";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { courseDetails, currentUser, getFlatLessons } from "@/data/courseDetail";
+import { currentUser, getFlatLessons } from "@/data/courseDetail";
 import { buildCourseDetailFromStore } from "@/data/courseFromStore";
 import { useAdminStore } from "@/data/adminStore";
 import { useCourseProgress } from "@/hooks/useCourseProgress";
@@ -22,9 +22,12 @@ const CoursePage = () => {
   useAdminStore((s) => s.courses);
   useAdminStore((s) => s.chapters);
   useAdminStore((s) => s.lessons);
-  const resolvedCourse =
-    buildCourseDetailFromStore(id) ?? courseDetails[id] ?? null;
+  const resolvedCourse = buildCourseDetailFromStore(id);
   const notFound = !resolvedCourse;
+  const isAdmin = user?.role === "admin";
+  const hasAccess =
+    !!resolvedCourse &&
+    (isAdmin || (user?.assignedCourses ?? []).includes(resolvedCourse.id));
   const course =
     resolvedCourse ?? {
       id: id || "missing",
@@ -102,6 +105,30 @@ const CoursePage = () => {
           <p className="mt-3 text-muted-foreground">
             ייתכן שהקורס הוסר או שהקישור שגוי.
           </p>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!hasAccess) {
+    return (
+      <div dir="rtl" className="min-h-screen bg-background">
+        <Header />
+        <main className="container py-20 text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+            <Lock className="h-7 w-7 text-muted-foreground" strokeWidth={1.5} />
+          </div>
+          <h1 className="mt-5 text-3xl font-bold text-foreground">אין לך גישה לקורס</h1>
+          <p className="mt-3 text-muted-foreground">
+            הקורס לא שויך אליך. פנה למנהל המערכת לקבלת גישה.
+          </p>
+          <Link
+            to="/"
+            className="mt-6 inline-flex items-center justify-center rounded-full bg-foreground px-6 py-3 text-sm font-semibold text-background transition hover:bg-primary"
+          >
+            חזרה לעמוד הבית
+          </Link>
         </main>
         <Footer />
       </div>

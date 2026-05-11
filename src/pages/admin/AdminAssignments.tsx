@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
-import { Save } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Save, Search, Check } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { adminStore, useAdminStore } from "@/data/adminStore";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 
 const AdminAssignments = () => {
@@ -14,7 +15,21 @@ const AdminAssignments = () => {
   const [userId, setUserId] = useState(users[0]?.id ?? "");
   const [selected, setSelected] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
   const { toast } = useToast();
+
+  const selectedUser = users.find((u) => u.id === userId) ?? null;
+
+  const filteredUsers = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return users;
+    return users.filter(
+      (u) =>
+        u.fullName.toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q)
+    );
+  }, [users, query]);
 
   useEffect(() => {
     setSelected(
@@ -44,17 +59,67 @@ const AdminAssignments = () => {
         <div className="rounded-2xl border border-border bg-card p-5 shadow-card lg:col-span-1">
           <div className="space-y-1.5">
             <Label>בחר משתמש</Label>
-            <select
-              value={userId}
-              onChange={(e) => setUserId(e.target.value)}
-              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-            >
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.fullName} — {u.email}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setOpen(true);
+                }}
+                onFocus={() => setOpen(true)}
+                onBlur={() => setTimeout(() => setOpen(false), 150)}
+                placeholder={
+                  selectedUser
+                    ? `${selectedUser.fullName} — ${selectedUser.email}`
+                    : "חיפוש לפי שם או אימייל"
+                }
+                className="pr-9 text-right"
+              />
+              {open && (
+                <div className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-md border border-border bg-popover shadow-lg">
+                  {filteredUsers.length === 0 ? (
+                    <p className="px-3 py-3 text-sm text-muted-foreground">
+                      לא נמצאו משתמשים
+                    </p>
+                  ) : (
+                    filteredUsers.map((u) => {
+                      const isSel = u.id === userId;
+                      return (
+                        <button
+                          key={u.id}
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            setUserId(u.id);
+                            setQuery("");
+                            setOpen(false);
+                          }}
+                          className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-right text-sm transition hover:bg-accent ${
+                            isSel ? "bg-accent/60" : ""
+                          }`}
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate font-medium">{u.fullName}</p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {u.email}
+                            </p>
+                          </div>
+                          {isSel && (
+                            <Check className="h-4 w-4 shrink-0 text-primary" />
+                          )}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </div>
+            {selectedUser && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                נבחר: {selectedUser.fullName} ({selectedUser.email})
+              </p>
+            )}
           </div>
           <Button
             onClick={save}
