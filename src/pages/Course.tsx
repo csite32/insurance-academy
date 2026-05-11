@@ -22,23 +22,19 @@ const CoursePage = () => {
   useAdminStore((s) => s.courses);
   useAdminStore((s) => s.chapters);
   useAdminStore((s) => s.lessons);
-  const course =
+  const resolvedCourse =
     buildCourseDetailFromStore(id) ?? courseDetails[id] ?? null;
-
-  if (!course) {
-    return (
-      <div dir="rtl" className="min-h-screen bg-background">
-        <Header />
-        <main className="container py-20 text-center">
-          <h1 className="text-3xl font-bold text-foreground">הקורס לא נמצא</h1>
-          <p className="mt-3 text-muted-foreground">
-            ייתכן שהקורס הוסר או שהקישור שגוי.
-          </p>
-        </main>
-        <Footer />
-      </div>
-    );
-  }
+  const notFound = !resolvedCourse;
+  const course =
+    resolvedCourse ?? {
+      id: id || "missing",
+      title: "",
+      description: "",
+      learningMode: "free" as const,
+      chapters: [],
+      assignedUserIds: [],
+      active: false,
+    };
 
   const flatLessons = useMemo(() => getFlatLessons(course), [course]);
   const total = flatLessons.length;
