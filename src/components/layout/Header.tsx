@@ -1,17 +1,25 @@
 import { Bell, ChevronDown, LogOut, UserCircle2, Menu, X } from "lucide-react";
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import logo from "@/assets/logo.png";
+import { useAuth } from "@/contexts/AuthContext";
 
 const navItems = [
   { label: "עמוד בית", href: "/", active: true },
   { label: "הקורסים שלי", href: "#courses" },
   { label: "צפייה בעמוד קורס לדוגמה", href: "/course/course-1" },
-  { label: "אזור אישי", href: "#profile" },
+  { label: "אזור אישי", href: "/profile" },
 ];
 
 const Header = () => {
   const [open, setOpen] = useState(false);
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const handleLogout = () => {
+    logout();
+    navigate("/login", { replace: true });
+  };
+  const displayName = user?.fullName ?? "";
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-card/95 backdrop-blur-md">
       <div className="container flex h-20 items-center justify-between gap-4">
@@ -40,11 +48,14 @@ const Header = () => {
 
         {/* Right cluster (user, bell, logout) */}
         <div className="hidden lg:flex items-center gap-4">
-          <button className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 transition-shadow hover:shadow-card">
+          <Link
+            to="/profile"
+            className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 transition-shadow hover:shadow-card"
+          >
             <UserCircle2 className="h-7 w-7 text-muted-foreground" strokeWidth={1.5} />
-            <span className="text-sm font-medium">שלום, יוסי לוי</span>
+            <span className="text-sm font-medium">שלום, {displayName}</span>
             <ChevronDown className="h-4 w-4 text-muted-foreground" />
-          </button>
+          </Link>
           <button
             aria-label="התראות"
             className="relative rounded-full border border-border bg-card p-2 transition-colors hover:border-primary"
@@ -52,7 +63,10 @@ const Header = () => {
             <Bell className="h-5 w-5 text-foreground" strokeWidth={1.5} />
             <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary" />
           </button>
-          <button className="flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium transition-colors hover:border-primary hover:text-primary">
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium transition-colors hover:border-primary hover:text-primary"
+          >
             <LogOut className="h-4 w-4" />
             התנתקות
           </button>
@@ -87,9 +101,12 @@ const Header = () => {
             <div className="mt-2 flex items-center justify-between border-t border-border pt-4">
               <div className="flex items-center gap-2">
                 <UserCircle2 className="h-7 w-7 text-muted-foreground" strokeWidth={1.5} />
-                <span className="text-sm font-medium">שלום, יוסי לוי</span>
+                <span className="text-sm font-medium">שלום, {displayName}</span>
               </div>
-              <button className="flex items-center gap-2 text-sm text-muted-foreground">
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 text-sm text-muted-foreground"
+              >
                 <LogOut className="h-4 w-4" />
                 התנתקות
               </button>
