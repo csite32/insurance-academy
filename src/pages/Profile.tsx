@@ -249,7 +249,7 @@ const Profile = () => {
                   <p className="text-3xl md:text-5xl font-extrabold text-foreground leading-none tracking-tight">
                     {s.value}
                   </p>
-                  <p className="text-muted-foreground mt-3 md:mt-4 text-sm md:text-base leading-tight">
+                  <p className="text-muted-foreground mt-3 md:mt-4 md:text-base leading-tight text-xl">
                     {s.label}
                   </p>
                 </div>
