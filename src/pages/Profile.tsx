@@ -231,10 +231,10 @@ const Profile = () => {
             ].map((s) => (
               <div
                 key={s.label}
-                className="group relative flex items-center gap-4 md:gap-5 rounded-3xl border border-border bg-card p-5 md:p-7 shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover hover:border-primary/40 overflow-hidden min-h-[130px] md:min-h-[160px]"
+                className="group relative flex flex-col-reverse items-center text-center md:flex-row md:items-center md:text-right gap-3 md:gap-5 rounded-3xl border border-border bg-card p-5 md:p-7 shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover hover:border-primary/40 overflow-hidden min-h-[130px] md:min-h-[160px]"
               >
                 <div className="absolute -top-10 -left-10 h-28 w-28 rounded-full bg-primary/5 blur-2xl transition-opacity duration-300 group-hover:opacity-80" aria-hidden />
-                <div className="relative flex-1 text-right">
+                <div className="relative md:flex-1 w-full md:w-auto text-center md:text-right">
                   <p className="text-3xl md:text-5xl font-extrabold text-foreground leading-none tracking-tight">
                     {s.value}
                   </p>
