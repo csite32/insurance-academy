@@ -9,6 +9,7 @@ const CoursesSection = () => {
   const courses = useAdminStore((s) => s.courses);
   const lessons = useAdminStore((s) => s.lessons);
   const assigned = user?.assignedCourses ?? [];
+  const isAdmin = user?.role === "admin";
   const visible: Course[] = courses
     .filter((c) => c.status === "active")
     .map((c) => ({
@@ -17,7 +18,7 @@ const CoursesSection = () => {
       description: c.description,
       lessons: lessons.filter((l) => l.courseId === c.id).length,
       icon: getIcon(c.iconKey),
-      locked: !assigned.includes(c.id),
+      locked: !isAdmin && !assigned.includes(c.id),
     }));
   return (
     <section id="courses" className="container py-14 lg:py-20">

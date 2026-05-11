@@ -22,10 +22,19 @@ const CoursePage = () => {
   useAdminStore((s) => s.courses);
   useAdminStore((s) => s.chapters);
   useAdminStore((s) => s.lessons);
+  const resolvedCourse =
+    buildCourseDetailFromStore(id) ?? courseDetails[id] ?? null;
+  const notFound = !resolvedCourse;
   const course =
-    buildCourseDetailFromStore(id) ??
-    courseDetails[id] ??
-    courseDetails["course-1"];
+    resolvedCourse ?? {
+      id: id || "missing",
+      title: "",
+      description: "",
+      learningMode: "free" as const,
+      chapters: [],
+      assignedUserIds: [],
+      active: false,
+    };
 
   const flatLessons = useMemo(() => getFlatLessons(course), [course]);
   const total = flatLessons.length;
@@ -83,6 +92,21 @@ const CoursePage = () => {
       onSelect={handleSelect}
     />
   );
+
+  if (notFound) {
+    return (
+      <div dir="rtl" className="min-h-screen bg-background">
+        <Header />
+        <main className="container py-20 text-center">
+          <h1 className="text-3xl font-bold text-foreground">הקורס לא נמצא</h1>
+          <p className="mt-3 text-muted-foreground">
+            ייתכן שהקורס הוסר או שהקישור שגוי.
+          </p>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div dir="rtl" className="min-h-screen bg-background">
