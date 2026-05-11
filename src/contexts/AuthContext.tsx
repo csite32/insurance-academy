@@ -11,6 +11,7 @@ export type AuthUser = {
   completedLessons: string[];
   lastViewedLesson: string | null;
   progress: number;
+  avatarUrl?: string | null;
 };
 
 type MockRecord = AuthUser & { password: string };
@@ -36,6 +37,7 @@ type AuthContextValue = {
   loading: boolean;
   login: (email: string, password: string) => { ok: boolean; error?: string };
   logout: () => void;
+  updateAvatar: (dataUrl: string | null) => void;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -78,8 +80,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const updateAvatar = (dataUrl: string | null) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, avatarUrl: dataUrl };
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, updateAvatar }}>
       {children}
     </AuthContext.Provider>
   );

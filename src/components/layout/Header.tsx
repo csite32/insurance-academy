@@ -52,7 +52,15 @@ const Header = () => {
             to="/profile"
             className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 transition-shadow hover:shadow-card"
           >
-            <UserCircle2 className="h-7 w-7 text-muted-foreground" strokeWidth={1.5} />
+            {user?.avatarUrl ? (
+              <img
+                src={user.avatarUrl}
+                alt={displayName}
+                className="h-7 w-7 rounded-full object-cover"
+              />
+            ) : (
+              <UserCircle2 className="h-7 w-7 text-muted-foreground" strokeWidth={1.5} />
+            )}
             <span className="text-sm font-medium">שלום, {displayName}</span>
             <ChevronDown className="h-4 w-4 text-muted-foreground" />
           </Link>
@@ -100,7 +108,15 @@ const Header = () => {
             ))}
             <div className="mt-2 flex items-center justify-between border-t border-border pt-4">
               <div className="flex items-center gap-2">
-                <UserCircle2 className="h-7 w-7 text-muted-foreground" strokeWidth={1.5} />
+                {user?.avatarUrl ? (
+                  <img
+                    src={user.avatarUrl}
+                    alt={displayName}
+                    className="h-7 w-7 rounded-full object-cover"
+                  />
+                ) : (
+                  <UserCircle2 className="h-7 w-7 text-muted-foreground" strokeWidth={1.5} />
+                )}
                 <span className="text-sm font-medium">שלום, {displayName}</span>
               </div>
               <button
