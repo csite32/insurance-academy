@@ -49,7 +49,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // keep user.assignedCourses in sync with admin store changes
   useEffect(() => {
-    return adminStore.subscribe(() => {
+    const unsub = adminStore.subscribe(() => {
       setUser((prev) => {
         if (!prev) return prev;
         const next = {
@@ -64,6 +64,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return next;
       });
     });
+    return () => {
+      unsub();
+    };
   }, []);
 
   const login = (email: string, password: string) => {
