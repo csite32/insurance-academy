@@ -31,6 +31,7 @@ const MOCK_USERS: MockRecord[] = [
 ];
 
 const STORAGE_KEY = "auth:user";
+const AVATAR_KEY = (userId: string) => `auth:avatar:${userId}`;
 
 type AuthContextValue = {
   user: AuthUser | null;
@@ -62,9 +63,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     );
     if (!found) return { ok: false, error: "אימייל או סיסמה שגויים" };
     const { password: _pw, ...safe } = found;
-    setUser(safe);
+    let storedAvatar: string | null = null;
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(safe));
+      storedAvatar = localStorage.getItem(AVATAR_KEY(safe.id));
+    } catch {
+      /* ignore */
+    }
+    const withAvatar = { ...safe, avatarUrl: storedAvatar };
+    setUser(withAvatar);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(withAvatar));
     } catch {
       /* ignore */
     }
@@ -86,6 +94,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const next = { ...prev, avatarUrl: dataUrl };
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        if (dataUrl) {
+          localStorage.setItem(AVATAR_KEY(prev.id), dataUrl);
+        } else {
+          localStorage.removeItem(AVATAR_KEY(prev.id));
+        }
       } catch {
         /* ignore */
       }
