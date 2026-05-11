@@ -233,7 +233,7 @@ const Profile = () => {
           </div>
 
           {/* Stats */}
-          <div className="lg:col-span-2 grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="lg:col-span-2 grid grid-cols-2 gap-4 content-start">
             {[
               { icon: BookOpen, label: "קורסים משויכים", value: rows.length },
               { icon: GraduationCap, label: "קורסים בתהליך", value: inProgress },
@@ -242,13 +242,19 @@ const Profile = () => {
             ].map((s) => (
               <div
                 key={s.label}
-                className="rounded-3xl border border-border bg-card p-5 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-card-hover"
+                className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-card-hover"
               >
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-                  <s.icon className="h-5 w-5" strokeWidth={1.8} />
+                <div className="flex-1 text-right">
+                  <p className="text-2xl md:text-[1.65rem] font-extrabold text-foreground leading-none tracking-tight">
+                    {s.value}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground mt-1.5 leading-none">
+                    {s.label}
+                  </p>
                 </div>
-                <p className="mt-3 text-2xl font-extrabold text-foreground">{s.value}</p>
-                <p className="text-xs text-muted-foreground mt-1">{s.label}</p>
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <s.icon className="h-4 w-4" strokeWidth={1.8} />
+                </div>
               </div>
             ))}
           </div>
