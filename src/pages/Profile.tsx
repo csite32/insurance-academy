@@ -14,7 +14,7 @@ import {
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { useAuth } from "@/contexts/AuthContext";
-import { useAdminStore, getIcon } from "@/data/adminStore";
+import { useAdminStore, useAdminStoreHydration, getIcon } from "@/data/adminStore";
 import type { CourseProgress, CourseStatus } from "@/hooks/useCourseProgress";
 
 type CourseRow = {
@@ -52,6 +52,7 @@ const statusClasses: Record<CourseStatus, string> = {
 };
 
 const Profile = () => {
+  useAdminStoreHydration();
   const { user, updateAvatar } = useAuth();
   const adminCourses = useAdminStore((s) => s.courses);
   const adminLessons = useAdminStore((s) => s.lessons);

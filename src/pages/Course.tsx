@@ -9,15 +9,16 @@ import LessonContent from "@/components/course/LessonContent";
 import CompletionCard from "@/components/course/CompletionCard";
 import SimulatorCard from "@/components/course/SimulatorCard";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { currentUser, getFlatLessons } from "@/data/courseDetail";
+import { getFlatLessons } from "@/data/courseDetail";
 import { buildCourseDetailFromStore } from "@/data/courseFromStore";
-import { useAdminStore } from "@/data/adminStore";
+import { useAdminStore, useAdminStoreHydration } from "@/data/adminStore";
 import { useCourseProgress } from "@/hooks/useCourseProgress";
 import { useAuth } from "@/contexts/AuthContext";
 
 const CoursePage = () => {
   const { id = "" } = useParams();
   const { user } = useAuth();
+  useAdminStoreHydration();
   // Re-render when admin store changes
   useAdminStore((s) => s.courses);
   useAdminStore((s) => s.chapters);
@@ -43,7 +44,7 @@ const CoursePage = () => {
   const total = flatLessons.length;
 
   const { progress, setLastLesson, toggleComplete, percent, completedCount } =
-    useCourseProgress(user?.id ?? currentUser.id, course.id, total);
+    useCourseProgress(user?.id ?? "guest", course.id, total);
 
   const initialLessonId = progress.lastLessonId ?? flatLessons[0]?.id ?? "";
   const [activeId, setActiveId] = useState(initialLessonId);

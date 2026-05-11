@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { courses as seedCourses } from "./courses";
 import { courseDetails } from "./courseDetail";
 import {
@@ -70,7 +70,6 @@ type StoreState = {
 };
 
 const STORAGE_KEY = "admin:store:v1";
-const SEED_FLAG = "admin:store:seeded:v1";
 
 const ICONS: Record<string, LucideIcon> = {
   service: Headphones,
@@ -160,39 +159,83 @@ function buildSeed(): StoreState {
 let state: StoreState = loadInitial();
 const listeners = new Set<() => void>();
 
+function emit() {
+  listeners.forEach((l) => l());
+}
+
+function persistState(next: StoreState) {
+  state = next;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    /* ignore */
+  }
+  emit();
+}
+
 function loadInitial(): StoreState {
   if (typeof window === "undefined") return buildSeed();
   try {
-    const seeded = localStorage.getItem(SEED_FLAG);
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (seeded && raw) {
+    if (raw) {
       return JSON.parse(raw) as StoreState;
     }
     const seed = buildSeed();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(seed));
-    localStorage.setItem(SEED_FLAG, "1");
     return seed;
   } catch {
     return buildSeed();
   }
 }
 
-function persist() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch {
-    /* ignore */
-  }
-  listeners.forEach((l) => l());
+function update(mut: (s: StoreState) => StoreState) {
+  persistState(mut(state));
 }
 
-function update(mut: (s: StoreState) => StoreState) {
-  state = mut(state);
-  persist();
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (event) => {
+    if (event.key !== STORAGE_KEY || !event.newValue) return;
+    try {
+      state = JSON.parse(event.newValue) as StoreState;
+      emit();
+    } catch {
+      /* ignore */
+    }
+  });
 }
+
+export const getCourses = () => state.courses;
+export const saveCourses = (courses: AdminCourse[]) =>
+  update((s) => ({ ...s, courses }));
+
+export const getChapters = () => state.chapters;
+export const saveChapters = (chapters: AdminChapter[]) =>
+  update((s) => ({ ...s, chapters }));
+
+export const getLessons = () => state.lessons;
+export const saveLessons = (lessons: AdminLesson[]) =>
+  update((s) => ({ ...s, lessons }));
+
+export const getUsers = () => state.users;
+export const saveUsers = (users: AdminUser[]) =>
+  update((s) => ({ ...s, users }));
+
+export const getAssignments = () => state.assignments;
+export const saveAssignments = (assignments: AdminAssignment[]) =>
+  update((s) => ({ ...s, assignments }));
 
 export const adminStore = {
   getState: () => state,
+  getCourses,
+  saveCourses,
+  getChapters,
+  saveChapters,
+  getLessons,
+  saveLessons,
+  getUsers,
+  saveUsers,
+  getAssignments,
+  saveAssignments,
   subscribe(cb: () => void) {
     listeners.add(cb);
     return () => listeners.delete(cb);
@@ -200,14 +243,11 @@ export const adminStore = {
   // courses
   createCourse(input: Omit<AdminCourse, "id">) {
     const c: AdminCourse = { ...input, id: uid("course") };
-    update((s) => ({ ...s, courses: [...s.courses, c] }));
+    saveCourses([...getCourses(), c]);
     return c;
   },
   updateCourse(id: string, patch: Partial<AdminCourse>) {
-    update((s) => ({
-      ...s,
-      courses: s.courses.map((c) => (c.id === id ? { ...c, ...patch } : c)),
-    }));
+    saveCourses(getCourses().map((c) => (c.id === id ? { ...c, ...patch } : c)));
   },
   deleteCourse(id: string) {
     update((s) => ({
@@ -223,14 +263,11 @@ export const adminStore = {
     const order =
       state.chapters.filter((c) => c.courseId === input.courseId).length + 1;
     const c: AdminChapter = { ...input, id: uid("ch"), order };
-    update((s) => ({ ...s, chapters: [...s.chapters, c] }));
+    saveChapters([...getChapters(), c]);
     return c;
   },
   updateChapter(id: string, patch: Partial<AdminChapter>) {
-    update((s) => ({
-      ...s,
-      chapters: s.chapters.map((c) => (c.id === id ? { ...c, ...patch } : c)),
-    }));
+    saveChapters(getChapters().map((c) => (c.id === id ? { ...c, ...patch } : c)));
   },
   deleteChapter(id: string) {
     update((s) => ({
@@ -260,17 +297,14 @@ export const adminStore = {
       order,
       quiz: null,
     };
-    update((s) => ({ ...s, lessons: [...s.lessons, l] }));
+    saveLessons([...getLessons(), l]);
     return l;
   },
   updateLesson(id: string, patch: Partial<AdminLesson>) {
-    update((s) => ({
-      ...s,
-      lessons: s.lessons.map((l) => (l.id === id ? { ...l, ...patch } : l)),
-    }));
+    saveLessons(getLessons().map((l) => (l.id === id ? { ...l, ...patch } : l)));
   },
   deleteLesson(id: string) {
-    update((s) => ({ ...s, lessons: s.lessons.filter((l) => l.id !== id) }));
+    saveLessons(getLessons().filter((l) => l.id !== id));
   },
   moveLesson(id: string, direction: "up" | "down") {
     update((s) => {
@@ -297,14 +331,11 @@ export const adminStore = {
   // users
   createUser(input: Omit<AdminUser, "id">) {
     const u: AdminUser = { ...input, id: uid("user") };
-    update((s) => ({ ...s, users: [...s.users, u] }));
+    saveUsers([...getUsers(), u]);
     return u;
   },
   updateUser(id: string, patch: Partial<AdminUser>) {
-    update((s) => ({
-      ...s,
-      users: s.users.map((u) => (u.id === id ? { ...u, ...patch } : u)),
-    }));
+    saveUsers(getUsers().map((u) => (u.id === id ? { ...u, ...patch } : u)));
   },
   deleteUser(id: string) {
     update((s) => ({
@@ -315,13 +346,10 @@ export const adminStore = {
   },
   // assignments
   setAssignments(userId: string, courseIds: string[]) {
-    update((s) => ({
-      ...s,
-      assignments: [
-        ...s.assignments.filter((a) => a.userId !== userId),
-        ...courseIds.map((courseId) => ({ userId, courseId })),
-      ],
-    }));
+    saveAssignments([
+      ...getAssignments().filter((a) => a.userId !== userId),
+      ...courseIds.map((courseId) => ({ userId, courseId })),
+    ]);
   },
   authenticate(email: string, password: string): AdminUser | null {
     return (
@@ -331,6 +359,9 @@ export const adminStore = {
           u.password === password
       ) ?? null
     );
+  },
+  getUserById(id: string): AdminUser | null {
+    return state.users.find((user) => user.id === id) ?? null;
   },
   assignedCoursesFor(userId: string): string[] {
     return state.assignments
@@ -345,6 +376,20 @@ export function useAdminStore<T>(selector: (s: StoreState) => T): T {
     () => selector(adminStore.getState()),
     () => selector(adminStore.getState())
   );
+}
+
+export function useAdminStoreHydration() {
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      state = JSON.parse(raw) as StoreState;
+      emit();
+    } catch {
+      /* ignore */
+    }
+  }, []);
 }
 
 // Convenience selectors used by app pages
