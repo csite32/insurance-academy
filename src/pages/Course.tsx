@@ -11,16 +11,18 @@ import SimulatorCard from "@/components/course/SimulatorCard";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { courseDetails, currentUser, getFlatLessons } from "@/data/courseDetail";
 import { useCourseProgress } from "@/hooks/useCourseProgress";
+import { useAuth } from "@/contexts/AuthContext";
 
 const CoursePage = () => {
   const { id = "" } = useParams();
+  const { user } = useAuth();
   const course = courseDetails[id] ?? courseDetails["course-1"];
 
   const flatLessons = useMemo(() => getFlatLessons(course), [course]);
   const total = flatLessons.length;
 
   const { progress, setLastLesson, toggleComplete, percent, completedCount } =
-    useCourseProgress(currentUser.id, course.id, total);
+    useCourseProgress(user?.id ?? currentUser.id, course.id, total);
 
   const initialLessonId = progress.lastLessonId ?? flatLessons[0]?.id ?? "";
   const [activeId, setActiveId] = useState(initialLessonId);
