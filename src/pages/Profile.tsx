@@ -3,10 +3,10 @@ import { Link } from "react-router-dom";
 import {
   UserCircle2,
   Camera,
-  BookOpen,
-  GraduationCap,
-  CheckCircle2,
-  TrendingUp,
+  Library,
+  Rocket,
+  Trophy,
+  Activity,
   ChevronLeft,
   PlayCircle,
   Sparkles,
@@ -233,27 +233,28 @@ const Profile = () => {
           </div>
 
           {/* Stats */}
-          <div className="lg:col-span-2 grid grid-cols-2 gap-4 content-start">
+          <div className="lg:col-span-2 grid grid-cols-2 gap-4 md:gap-5 auto-rows-fr">
             {[
-              { icon: BookOpen, label: "קורסים משויכים", value: rows.length },
-              { icon: GraduationCap, label: "קורסים בתהליך", value: inProgress },
-              { icon: CheckCircle2, label: "שיעורים שהושלמו", value: totalCompleted },
-              { icon: TrendingUp, label: "התקדמות כללית", value: `${overall}%` },
+              { icon: Library, label: "קורסים משויכים", value: rows.length },
+              { icon: Rocket, label: "קורסים בתהליך", value: inProgress },
+              { icon: Trophy, label: "שיעורים שהושלמו", value: totalCompleted },
+              { icon: Activity, label: "התקדמות כללית", value: `${overall}%` },
             ].map((s) => (
               <div
                 key={s.label}
-                className="flex items-center rounded-2xl border border-border bg-card p-4 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-card-hover px-[16px] gap-[12px]"
+                className="group relative flex items-center gap-4 md:gap-5 rounded-3xl border border-border bg-card p-5 md:p-7 shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover hover:border-primary/40 overflow-hidden min-h-[130px] md:min-h-[160px]"
               >
-                <div className="flex-1 text-right">
-                  <p className="text-2xl md:text-[1.65rem] font-extrabold text-foreground leading-none tracking-tight">
+                <div className="absolute -top-10 -left-10 h-28 w-28 rounded-full bg-primary/5 blur-2xl transition-opacity duration-300 group-hover:opacity-80" aria-hidden />
+                <div className="relative flex-1 text-right">
+                  <p className="text-3xl md:text-5xl font-extrabold text-foreground leading-none tracking-tight">
                     {s.value}
                   </p>
-                  <p className="text-muted-foreground mt-1.5 leading-none text-base">
+                  <p className="text-muted-foreground mt-3 md:mt-4 text-sm md:text-base leading-tight">
                     {s.label}
                   </p>
                 </div>
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <s.icon className="h-4 w-4" strokeWidth={1.8} />
+                <div className="relative flex h-14 w-14 md:h-16 md:w-16 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/15 transition-transform duration-300 group-hover:scale-105">
+                  <s.icon className="h-7 w-7 md:h-8 md:w-8" strokeWidth={1.6} />
                 </div>
               </div>
             ))}
