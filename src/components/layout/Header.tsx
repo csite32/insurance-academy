@@ -1,4 +1,4 @@
-import { Bell, ChevronDown, LogOut, UserCircle2, Menu, X } from "lucide-react";
+import { Bell, ChevronDown, LogOut, UserCircle2, Menu, X, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import logo from "@/assets/logo.png";
@@ -20,6 +20,7 @@ const Header = () => {
     navigate("/login", { replace: true });
   };
   const displayName = user?.fullName ?? "";
+  const isAdmin = user?.role === "admin";
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-card/95 backdrop-blur-md">
       <div className="container flex h-20 items-center justify-between gap-4">
@@ -48,6 +49,15 @@ const Header = () => {
 
         {/* Right cluster (user, bell, logout) */}
         <div className="hidden lg:flex items-center gap-4">
+          {isAdmin && (
+            <Link
+              to="/admin"
+              className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 text-primary px-3 py-1.5 text-xs font-semibold hover:bg-primary/20 transition"
+            >
+              <ShieldCheck className="h-3.5 w-3.5" />
+              אזור ניהול
+            </Link>
+          )}
           <Link
             to="/profile"
             className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 transition-shadow hover:shadow-card"
@@ -106,6 +116,15 @@ const Header = () => {
                 {item.label}
               </a>
             ))}
+            {isAdmin && (
+              <Link
+                to="/admin"
+                onClick={() => setOpen(false)}
+                className="rounded-lg px-3 py-3 text-base font-medium text-primary hover:bg-primary/10"
+              >
+                אזור ניהול
+              </Link>
+            )}
             <div className="mt-2 flex items-center justify-between border-t border-border pt-4">
               <div className="flex items-center gap-2">
                 {user?.avatarUrl ? (
