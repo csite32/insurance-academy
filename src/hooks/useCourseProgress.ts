@@ -50,12 +50,13 @@ export function useCourseProgress(
   const lastWrittenLessonRef = useRef<string | null>(null);
 
   const isGuest = !userId || userId === "guest";
+  const isValidCourse = !!courseId && courseId !== "missing";
 
   // Initial load + reload on user/course change
   useEffect(() => {
     setProgress(empty(userId, courseId));
     lastWrittenLessonRef.current = null;
-    if (isGuest || !courseId) return;
+    if (isGuest || !isValidCourse) return;
     let cancelled = false;
     (async () => {
       try {
@@ -91,11 +92,11 @@ export function useCourseProgress(
     return () => {
       cancelled = true;
     };
-  }, [userId, courseId, totalLessons, isGuest]);
+  }, [userId, courseId, totalLessons, isGuest, isValidCourse]);
 
   // Realtime: keep this user's progress in sync across tabs/devices
   useEffect(() => {
-    if (isGuest || !userId || !courseId) return;
+    if (isGuest || !userId || !isValidCourse) return;
     const refresh = async () => {
       try {
         const [rows, lv] = await Promise.all([
@@ -115,7 +116,7 @@ export function useCourseProgress(
     };
     const unsub = subscribeProgress(userId, refresh);
     return unsub;
-  }, [userId, courseId, totalLessons, isGuest]);
+  }, [userId, courseId, totalLessons, isGuest, isValidCourse]);
 
   const setLastLesson = useCallback(
     (lessonId: string) => {
@@ -125,15 +126,16 @@ export function useCourseProgress(
         startedAt: p.startedAt ?? new Date().toISOString(),
         status: p.status === "completed" ? p.status : "in_progress",
       }));
-      if (isGuest || !courseId) return;
+      if (isGuest || !isValidCourse) return;
       if (lastWrittenLessonRef.current === lessonId) return;
       lastWrittenLessonRef.current = lessonId;
-      void setLastViewed(userId, courseId, lessonId).catch(() => {
+      void setLastViewed(userId, courseId, lessonId).catch((err) => {
+        console.error("[progress] setLastViewed failed", err);
         // allow retry next time
         lastWrittenLessonRef.current = null;
       });
     },
-    [userId, courseId, isGuest]
+    [userId, courseId, isGuest, isValidCourse]
   );
 
   const toggleComplete = useCallback(
@@ -155,15 +157,21 @@ export function useCourseProgress(
           startedAt: p.startedAt ?? new Date().toISOString(),
         };
       });
-      if (isGuest || !courseId) return;
+      if (isGuest || !isValidCourse) return;
       const op = willMark
         ? markLessonCompleted(userId, courseId, lessonId)
         : unmarkLessonCompleted(userId, lessonId);
-      void op.catch(() => {
-        /* realtime/refresh will reconcile */
+      void op.catch((err) => {
+        console.error("[progress] toggleComplete write failed", {
+          userId,
+          courseId,
+          lessonId,
+          willMark,
+          err,
+        });
       });
     },
-    [userId, courseId, totalLessons, isGuest]
+    [userId, courseId, totalLessons, isGuest, isValidCourse]
   );
 
   const markComplete = useCallback(
@@ -183,10 +191,12 @@ export function useCourseProgress(
           startedAt: p.startedAt ?? new Date().toISOString(),
         };
       });
-      if (isGuest || !courseId || !didAdd) return;
-      void markLessonCompleted(userId, courseId, lessonId).catch(() => {});
+      if (isGuest || !isValidCourse || !didAdd) return;
+      void markLessonCompleted(userId, courseId, lessonId).catch((err) => {
+        console.error("[progress] markComplete write failed", err);
+      });
     },
-    [userId, courseId, totalLessons, isGuest]
+    [userId, courseId, totalLessons, isGuest, isValidCourse]
   );
 
   const completedCount = progress.completedLessonIds.length;
