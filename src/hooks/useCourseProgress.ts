@@ -50,12 +50,24 @@ export function useCourseProgress(
   const lastWrittenLessonRef = useRef<string | null>(null);
 
   const isGuest = !userId || userId === "guest";
+  const isValidCourse = !!courseId && courseId !== "missing";
 
-  // Initial load + reload on user/course change
+  // Keep latest totalLessons in a ref so we don't reload progress when it changes.
+  const totalLessonsRef = useRef(totalLessons);
+  useEffect(() => {
+    totalLessonsRef.current = totalLessons;
+    // Recompute status against new total without refetching.
+    setProgress((p) => ({
+      ...p,
+      status: computeStatus(p.completedLessonIds.length, totalLessons),
+    }));
+  }, [totalLessons]);
+
+  // Initial load + reload on user/course change ONLY.
   useEffect(() => {
     setProgress(empty(userId, courseId));
     lastWrittenLessonRef.current = null;
-    if (isGuest || !courseId) return;
+    if (isGuest || !isValidCourse) return;
     let cancelled = false;
     (async () => {
       try {
@@ -65,37 +77,36 @@ export function useCourseProgress(
         ]);
         if (cancelled) return;
         const completedLessonIds = rows.map((r) => r.lessonId);
+        const tl = totalLessonsRef.current;
         const startedAt =
           rows.length > 0
-            ? rows
-                .map((r) => r.completedAt)
-                .sort()[0] ?? null
+            ? rows.map((r) => r.completedAt).sort()[0] ?? null
             : null;
         setProgress({
           userId,
           courseId,
           completedLessonIds,
           lastLessonId: lv?.lessonId ?? null,
-          status: computeStatus(completedLessonIds.length, totalLessons),
+          status: computeStatus(completedLessonIds.length, tl),
           startedAt,
           completedAt:
-            totalLessons > 0 && completedLessonIds.length >= totalLessons
+            tl > 0 && completedLessonIds.length >= tl
               ? rows.map((r) => r.completedAt).sort().slice(-1)[0] ?? null
               : null,
         });
         if (lv?.lessonId) lastWrittenLessonRef.current = lv.lessonId;
-      } catch {
-        /* ignore: keep empty */
+      } catch (err) {
+        console.error("[progress] initial load failed", err);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [userId, courseId, totalLessons, isGuest]);
+  }, [userId, courseId, isGuest, isValidCourse]);
 
   // Realtime: keep this user's progress in sync across tabs/devices
   useEffect(() => {
-    if (isGuest || !userId || !courseId) return;
+    if (isGuest || !userId || !isValidCourse) return;
     const refresh = async () => {
       try {
         const [rows, lv] = await Promise.all([
@@ -103,19 +114,20 @@ export function useCourseProgress(
           getLastViewed(userId, courseId),
         ]);
         const completedLessonIds = rows.map((r) => r.lessonId);
+        const tl = totalLessonsRef.current;
         setProgress((p) => ({
           ...p,
           completedLessonIds,
           lastLessonId: lv?.lessonId ?? p.lastLessonId,
-          status: computeStatus(completedLessonIds.length, totalLessons),
+          status: computeStatus(completedLessonIds.length, tl),
         }));
-      } catch {
-        /* ignore */
+      } catch (err) {
+        console.error("[progress] realtime refresh failed", err);
       }
     };
     const unsub = subscribeProgress(userId, refresh);
     return unsub;
-  }, [userId, courseId, totalLessons, isGuest]);
+  }, [userId, courseId, isGuest, isValidCourse]);
 
   const setLastLesson = useCallback(
     (lessonId: string) => {
@@ -125,15 +137,16 @@ export function useCourseProgress(
         startedAt: p.startedAt ?? new Date().toISOString(),
         status: p.status === "completed" ? p.status : "in_progress",
       }));
-      if (isGuest || !courseId) return;
+      if (isGuest || !isValidCourse) return;
       if (lastWrittenLessonRef.current === lessonId) return;
       lastWrittenLessonRef.current = lessonId;
-      void setLastViewed(userId, courseId, lessonId).catch(() => {
+      void setLastViewed(userId, courseId, lessonId).catch((err) => {
+        console.error("[progress] setLastViewed failed", err);
         // allow retry next time
         lastWrittenLessonRef.current = null;
       });
     },
-    [userId, courseId, isGuest]
+    [userId, courseId, isGuest, isValidCourse]
   );
 
   const toggleComplete = useCallback(
@@ -155,15 +168,21 @@ export function useCourseProgress(
           startedAt: p.startedAt ?? new Date().toISOString(),
         };
       });
-      if (isGuest || !courseId) return;
+      if (isGuest || !isValidCourse) return;
       const op = willMark
         ? markLessonCompleted(userId, courseId, lessonId)
         : unmarkLessonCompleted(userId, lessonId);
-      void op.catch(() => {
-        /* realtime/refresh will reconcile */
+      void op.catch((err) => {
+        console.error("[progress] toggleComplete write failed", {
+          userId,
+          courseId,
+          lessonId,
+          willMark,
+          err,
+        });
       });
     },
-    [userId, courseId, totalLessons, isGuest]
+    [userId, courseId, totalLessons, isGuest, isValidCourse]
   );
 
   const markComplete = useCallback(
@@ -183,10 +202,12 @@ export function useCourseProgress(
           startedAt: p.startedAt ?? new Date().toISOString(),
         };
       });
-      if (isGuest || !courseId || !didAdd) return;
-      void markLessonCompleted(userId, courseId, lessonId).catch(() => {});
+      if (isGuest || !isValidCourse || !didAdd) return;
+      void markLessonCompleted(userId, courseId, lessonId).catch((err) => {
+        console.error("[progress] markComplete write failed", err);
+      });
     },
-    [userId, courseId, totalLessons, isGuest]
+    [userId, courseId, totalLessons, isGuest, isValidCourse]
   );
 
   const completedCount = progress.completedLessonIds.length;

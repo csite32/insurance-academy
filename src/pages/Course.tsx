@@ -47,8 +47,15 @@ const CoursePage = () => {
   const { progress, setLastLesson, toggleComplete, percent, completedCount } =
     useCourseProgress(user?.id ?? "guest", course.id, total);
 
-  const initialLessonId = progress.lastLessonId ?? flatLessons[0]?.id ?? "";
-  const [activeId, setActiveId] = useState(initialLessonId);
+  const [activeId, setActiveId] = useState<string>("");
+
+  // Once progress + lessons are loaded, default activeId to the
+  // last-viewed lesson (or the first lesson).
+  useEffect(() => {
+    if (activeId) return;
+    const next = progress.lastLessonId ?? flatLessons[0]?.id ?? "";
+    if (next) setActiveId(next);
+  }, [activeId, progress.lastLessonId, flatLessons]);
 
   useEffect(() => {
     if (activeId) setLastLesson(activeId);
