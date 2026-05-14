@@ -107,6 +107,11 @@ function setState(patch: Partial<StoreState>) {
 let hydrated = false;
 let hydrating: Promise<void> | null = null;
 let unsubAll: Array<() => void> = [];
+let hydratedAt = 0;
+
+export function isHydrated() {
+  return hydrated;
+}
 
 async function refreshCourses() {
   const data = await coursesDb.listCourses();
@@ -195,6 +200,8 @@ export async function ensureHydrated(): Promise<void> {
     await hydrateAll();
     startSubscriptions();
     hydrated = true;
+    hydratedAt = Date.now();
+    emit();
   })();
   return hydrating;
 }
@@ -397,6 +404,14 @@ export function useAdminStoreHydration() {
   useEffect(() => {
     void ensureHydrated();
   }, []);
+}
+
+export function useAdminHydrated(): boolean {
+  return useSyncExternalStore(
+    adminStore.subscribe,
+    () => hydrated,
+    () => hydrated
+  );
 }
 
 // Convenience selectors used by app pages
