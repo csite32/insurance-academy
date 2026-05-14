@@ -11,7 +11,7 @@ import SimulatorCard from "@/components/course/SimulatorCard";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { getFlatLessons } from "@/data/courseDetail";
 import { buildCourseDetailFromStore } from "@/data/courseFromStore";
-import { useAdminStore, useAdminStoreHydration } from "@/data/adminStore";
+import { useAdminStore, useAdminStoreHydration, useAdminHydrated } from "@/data/adminStore";
 import { useCourseProgress } from "@/hooks/useCourseProgress";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -19,12 +19,13 @@ const CoursePage = () => {
   const { id = "" } = useParams();
   const { user } = useAuth();
   useAdminStoreHydration();
+  const hydrated = useAdminHydrated();
   // Re-render when admin store changes
   useAdminStore((s) => s.courses);
   useAdminStore((s) => s.chapters);
   useAdminStore((s) => s.lessons);
   const resolvedCourse = buildCourseDetailFromStore(id);
-  const notFound = !resolvedCourse;
+  const notFound = hydrated && !resolvedCourse;
   const isAdmin = user?.role === "admin";
   const hasAccess =
     !!resolvedCourse &&

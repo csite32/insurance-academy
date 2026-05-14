@@ -55,7 +55,10 @@ const AdminUsers = () => {
     const e: Partial<Record<keyof FormState, string>> = {};
     if (!form.fullName.trim()) e.fullName = "שדה חובה";
     if (!form.email.trim() || !form.email.includes("@")) e.email = "אימייל לא תקין";
-    if (!form.password || form.password.length < 4) e.password = "סיסמה לפחות 4 תווים";
+    // Password is only required when creating a new user
+    if (!editing && (!form.password || form.password.length < 4)) {
+      e.password = "סיסמה לפחות 4 תווים";
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   };
