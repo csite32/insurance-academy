@@ -82,6 +82,13 @@ export function useCourseProgress(
           rows.length > 0
             ? rows.map((r) => r.completedAt).sort()[0] ?? null
             : null;
+        console.info("[progress] initial load resolved", {
+          user_id: userId,
+          course_id: courseId,
+          completedLessonIds,
+          lastLessonId: lv?.lessonId ?? null,
+          totalLessons: tl,
+        });
         setProgress({
           userId,
           courseId,
@@ -115,6 +122,13 @@ export function useCourseProgress(
         ]);
         const completedLessonIds = rows.map((r) => r.lessonId);
         const tl = totalLessonsRef.current;
+        console.info("[progress] realtime refresh resolved", {
+          user_id: userId,
+          course_id: courseId,
+          completedLessonIds,
+          lastLessonId: lv?.lessonId ?? null,
+          totalLessons: tl,
+        });
         setProgress((p) => ({
           ...p,
           completedLessonIds,
@@ -169,9 +183,15 @@ export function useCourseProgress(
         };
       });
       if (isGuest || !isValidCourse) return;
+      console.info("[progress] toggleComplete requested", {
+        user_id: userId,
+        course_id: courseId,
+        lesson_id: lessonId,
+        willMark,
+      });
       const op = willMark
         ? markLessonCompleted(userId, courseId, lessonId)
-        : unmarkLessonCompleted(userId, lessonId);
+        : unmarkLessonCompleted(userId, courseId, lessonId);
       void op.catch((err) => {
         console.error("[progress] toggleComplete write failed", {
           userId,
@@ -203,6 +223,11 @@ export function useCourseProgress(
         };
       });
       if (isGuest || !isValidCourse || !didAdd) return;
+      console.info("[progress] markComplete requested", {
+        user_id: userId,
+        course_id: courseId,
+        lesson_id: lessonId,
+      });
       void markLessonCompleted(userId, courseId, lessonId).catch((err) => {
         console.error("[progress] markComplete write failed", err);
       });
