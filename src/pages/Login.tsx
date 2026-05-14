@@ -16,11 +16,11 @@ const Login = () => {
 
   if (user) return <Navigate to="/" replace />;
 
-  const onSubmit = (e: FormEvent) => {
+  const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
-    const res = login(email, password);
+    const res = await login(email, password);
     setSubmitting(false);
     if (!res.ok) {
       setError(res.error ?? "שגיאה בהתחברות");
