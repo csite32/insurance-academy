@@ -1,6 +1,4 @@
 import { useEffect, useSyncExternalStore } from "react";
-import { courses as seedCourses } from "./courses";
-import { courseDetails } from "./courseDetail";
 import {
   BookOpen,
   Headphones,
@@ -11,6 +9,11 @@ import {
   UserCog,
   type LucideIcon,
 } from "lucide-react";
+import * as coursesDb from "@/lib/db/coursesDb";
+import * as chaptersDb from "@/lib/db/chaptersDb";
+import * as lessonsDb from "@/lib/db/lessonsDb";
+import * as usersDb from "@/lib/db/usersDb";
+import * as assignmentsDb from "@/lib/db/assignmentsDb";
 
 export type LearningMode = "sequential" | "free";
 export type CourseStatus = "active" | "draft";
@@ -69,8 +72,6 @@ type StoreState = {
   assignments: AdminAssignment[];
 };
 
-const STORAGE_KEY = "admin:store:v1";
-
 const ICONS: Record<string, LucideIcon> = {
   service: Headphones,
   elementary: ShieldCheck,
@@ -83,146 +84,135 @@ const ICONS: Record<string, LucideIcon> = {
 
 export const getIcon = (key: string): LucideIcon => ICONS[key] ?? ICONS.default;
 
-const uid = (prefix: string) =>
-  `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-
-function buildSeed(): StoreState {
-  const courses: AdminCourse[] = seedCourses.map((c) => ({
-    id: c.id,
-    title: c.title,
-    description: c.description,
-    image: "",
-    iconKey: c.id,
-    learningMode: "sequential",
-    status: "active",
-  }));
-
-  const chapters: AdminChapter[] = [];
-  const lessons: AdminLesson[] = [];
-
-  for (const c of seedCourses) {
-    const detail = courseDetails[c.id];
-    if (!detail) continue;
-    detail.chapters.forEach((ch, chIdx) => {
-      const chapterId = `${c.id}-ch-${chIdx + 1}`;
-      chapters.push({
-        id: chapterId,
-        title: ch.title,
-        order: chIdx + 1,
-        courseId: c.id,
-      });
-      ch.lessons.forEach((l, lIdx) => {
-        lessons.push({
-          id: `${c.id}-${chapterId}-l-${lIdx + 1}`,
-          title: l.title,
-          description: l.shortDescription,
-          videoUrl: l.videoUrl,
-          content: l.content,
-          attachments: (l.attachments ?? []).map((a) => a.name),
-          order: lIdx + 1,
-          courseId: c.id,
-          chapterId,
-          hasQuiz: !!l.quiz,
-          quiz: null,
-          isLocked: false,
-        });
-      });
-    });
-  }
-
-  const users: AdminUser[] = [
-    {
-      id: "user-demo",
-      fullName: "יוסי לוי",
-      email: "demo@academy.co.il",
-      password: "123456",
-      role: "user",
-    },
-    {
-      id: "user-admin",
-      fullName: "מנהל מערכת",
-      email: "admin@academy.co.il",
-      password: "123456",
-      role: "admin",
-    },
-  ];
-
-  const demoAssigned = ["service", "elementary", "sales", "finance"];
-  const assignments: AdminAssignment[] = demoAssigned.map((courseId) => ({
-    userId: "user-demo",
-    courseId,
-  }));
-
-  return { courses, chapters, lessons, users, assignments };
-}
-
-let state: StoreState = loadInitial();
+let state: StoreState = {
+  courses: [],
+  chapters: [],
+  lessons: [],
+  users: [],
+  assignments: [],
+};
 const listeners = new Set<() => void>();
 
 function emit() {
   listeners.forEach((l) => l());
 }
 
-function persistState(next: StoreState) {
-  state = next;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch {
-    /* ignore */
-  }
+function setState(patch: Partial<StoreState>) {
+  state = { ...state, ...patch };
   emit();
 }
 
-function loadInitial(): StoreState {
-  if (typeof window === "undefined") return buildSeed();
+// ---------- Cloud hydration ----------
+
+let hydrated = false;
+let hydrating: Promise<void> | null = null;
+let unsubAll: Array<() => void> = [];
+
+async function refreshCourses() {
+  const data = await coursesDb.listCourses();
+  setState({ courses: data });
+}
+async function refreshChapters() {
+  const data = await chaptersDb.listChapters();
+  setState({
+    chapters: data.map((c) => ({
+      id: c.id,
+      title: c.title,
+      order: c.order,
+      courseId: c.courseId,
+    })),
+  });
+}
+async function refreshLessons() {
+  const data = await lessonsDb.listLessons();
+  setState({
+    lessons: data.map((l) => ({
+      id: l.id,
+      title: l.title,
+      description: l.description,
+      videoUrl: l.videoUrl ?? undefined,
+      content: l.content ?? undefined,
+      attachments: l.attachments ?? [],
+      order: l.order,
+      courseId: l.courseId,
+      chapterId: l.chapterId,
+      hasQuiz: l.hasQuiz,
+      quiz: null,
+      isLocked: l.isLocked,
+    })),
+  });
+}
+async function refreshUsers() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      return JSON.parse(raw) as StoreState;
-    }
-    const seed = buildSeed();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(seed));
-    return seed;
+    const data = await usersDb.listUsers();
+    setState({
+      users: data.map((u) => ({
+        id: u.id,
+        fullName: u.fullName,
+        email: u.email,
+        password: "",
+        role: u.role,
+      })),
+    });
   } catch {
-    return buildSeed();
+    // non-admin: cannot list users
+    setState({ users: [] });
+  }
+}
+async function refreshAssignments() {
+  try {
+    const data = await assignmentsDb.listAssignments();
+    setState({ assignments: data });
+  } catch {
+    setState({ assignments: [] });
   }
 }
 
-function update(mut: (s: StoreState) => StoreState) {
-  persistState(mut(state));
+async function hydrateAll() {
+  await Promise.all([
+    refreshCourses().catch(() => {}),
+    refreshChapters().catch(() => {}),
+    refreshLessons().catch(() => {}),
+    refreshUsers().catch(() => {}),
+    refreshAssignments().catch(() => {}),
+  ]);
 }
 
-if (typeof window !== "undefined") {
-  window.addEventListener("storage", (event) => {
-    if (event.key !== STORAGE_KEY || !event.newValue) return;
-    try {
-      state = JSON.parse(event.newValue) as StoreState;
-      emit();
-    } catch {
-      /* ignore */
-    }
-  });
+function startSubscriptions() {
+  unsubAll.push(coursesDb.subscribeCourses(() => void refreshCourses().catch(() => {})));
+  unsubAll.push(chaptersDb.subscribeChapters(() => void refreshChapters().catch(() => {})));
+  unsubAll.push(lessonsDb.subscribeLessons(() => void refreshLessons().catch(() => {})));
+  unsubAll.push(usersDb.subscribeUsers(() => void refreshUsers().catch(() => {})));
+  unsubAll.push(
+    assignmentsDb.subscribeAssignments(() => void refreshAssignments().catch(() => {}))
+  );
 }
+
+export async function ensureHydrated(): Promise<void> {
+  if (hydrated) return;
+  if (hydrating) return hydrating;
+  hydrating = (async () => {
+    await hydrateAll();
+    startSubscriptions();
+    hydrated = true;
+  })();
+  return hydrating;
+}
+
+// ---------- Public API (signature-compatible with previous store) ----------
 
 export const getCourses = () => state.courses;
-export const saveCourses = (courses: AdminCourse[]) =>
-  update((s) => ({ ...s, courses }));
-
 export const getChapters = () => state.chapters;
-export const saveChapters = (chapters: AdminChapter[]) =>
-  update((s) => ({ ...s, chapters }));
-
 export const getLessons = () => state.lessons;
-export const saveLessons = (lessons: AdminLesson[]) =>
-  update((s) => ({ ...s, lessons }));
-
 export const getUsers = () => state.users;
-export const saveUsers = (users: AdminUser[]) =>
-  update((s) => ({ ...s, users }));
-
 export const getAssignments = () => state.assignments;
-export const saveAssignments = (assignments: AdminAssignment[]) =>
-  update((s) => ({ ...s, assignments }));
+
+// Kept for back-compat (no-op vs cloud — UI should call CRUD methods)
+export const saveCourses = (_: AdminCourse[]) => {};
+export const saveChapters = (_: AdminChapter[]) => {};
+export const saveLessons = (_: AdminLesson[]) => {};
+export const saveUsers = (_: AdminUser[]) => {};
+export const saveAssignments = (_: AdminAssignment[]) => {};
 
 export const adminStore = {
   getState: () => state,
@@ -240,128 +230,153 @@ export const adminStore = {
     listeners.add(cb);
     return () => listeners.delete(cb);
   },
-  // courses
-  createCourse(input: Omit<AdminCourse, "id">) {
-    const c: AdminCourse = { ...input, id: uid("course") };
-    saveCourses([...getCourses(), c]);
-    return c;
+
+  // ----- courses -----
+  async createCourse(input: Omit<AdminCourse, "id">) {
+    const c = await coursesDb.createCourse(input);
+    await refreshCourses();
+    return c as AdminCourse;
   },
-  updateCourse(id: string, patch: Partial<AdminCourse>) {
-    saveCourses(getCourses().map((c) => (c.id === id ? { ...c, ...patch } : c)));
+  async updateCourse(id: string, patch: Partial<AdminCourse>) {
+    await coursesDb.updateCourse(id, patch);
+    await refreshCourses();
   },
-  deleteCourse(id: string) {
-    update((s) => ({
-      ...s,
-      courses: s.courses.filter((c) => c.id !== id),
-      chapters: s.chapters.filter((c) => c.courseId !== id),
-      lessons: s.lessons.filter((l) => l.courseId !== id),
-      assignments: s.assignments.filter((a) => a.courseId !== id),
-    }));
-  },
-  // chapters
-  createChapter(input: Omit<AdminChapter, "id" | "order">) {
-    const order =
-      state.chapters.filter((c) => c.courseId === input.courseId).length + 1;
-    const c: AdminChapter = { ...input, id: uid("ch"), order };
-    saveChapters([...getChapters(), c]);
-    return c;
-  },
-  updateChapter(id: string, patch: Partial<AdminChapter>) {
-    saveChapters(getChapters().map((c) => (c.id === id ? { ...c, ...patch } : c)));
-  },
-  deleteChapter(id: string) {
-    update((s) => ({
-      ...s,
-      chapters: s.chapters.filter((c) => c.id !== id),
-      lessons: s.lessons.filter((l) => l.chapterId !== id),
-    }));
-  },
-  reorderChapters(courseId: string, orderedIds: string[]) {
-    update((s) => ({
-      ...s,
-      chapters: s.chapters.map((c) => {
-        if (c.courseId !== courseId) return c;
-        const idx = orderedIds.indexOf(c.id);
-        return idx === -1 ? c : { ...c, order: idx + 1 };
-      }),
-    }));
-  },
-  // lessons
-  createLesson(input: Omit<AdminLesson, "id" | "order" | "quiz"> & { order?: number }) {
-    const order =
-      input.order ??
-      state.lessons.filter((l) => l.chapterId === input.chapterId).length + 1;
-    const l: AdminLesson = {
-      ...input,
-      id: uid("l"),
-      order,
-      quiz: null,
-    };
-    saveLessons([...getLessons(), l]);
-    return l;
-  },
-  updateLesson(id: string, patch: Partial<AdminLesson>) {
-    saveLessons(getLessons().map((l) => (l.id === id ? { ...l, ...patch } : l)));
-  },
-  deleteLesson(id: string) {
-    saveLessons(getLessons().filter((l) => l.id !== id));
-  },
-  moveLesson(id: string, direction: "up" | "down") {
-    update((s) => {
-      const lesson = s.lessons.find((l) => l.id === id);
-      if (!lesson) return s;
-      const siblings = s.lessons
-        .filter((l) => l.chapterId === lesson.chapterId)
-        .sort((a, b) => a.order - b.order);
-      const idx = siblings.findIndex((l) => l.id === id);
-      const swapWith = direction === "up" ? siblings[idx - 1] : siblings[idx + 1];
-      if (!swapWith) return s;
-      const a = lesson.order;
-      const b = swapWith.order;
-      return {
-        ...s,
-        lessons: s.lessons.map((l) => {
-          if (l.id === lesson.id) return { ...l, order: b };
-          if (l.id === swapWith.id) return { ...l, order: a };
-          return l;
-        }),
-      };
-    });
-  },
-  // users
-  createUser(input: Omit<AdminUser, "id">) {
-    const u: AdminUser = { ...input, id: uid("user") };
-    saveUsers([...getUsers(), u]);
-    return u;
-  },
-  updateUser(id: string, patch: Partial<AdminUser>) {
-    saveUsers(getUsers().map((u) => (u.id === id ? { ...u, ...patch } : u)));
-  },
-  deleteUser(id: string) {
-    update((s) => ({
-      ...s,
-      users: s.users.filter((u) => u.id !== id),
-      assignments: s.assignments.filter((a) => a.userId !== id),
-    }));
-  },
-  // assignments
-  setAssignments(userId: string, courseIds: string[]) {
-    saveAssignments([
-      ...getAssignments().filter((a) => a.userId !== userId),
-      ...courseIds.map((courseId) => ({ userId, courseId })),
+  async deleteCourse(id: string) {
+    await coursesDb.deleteCourse(id);
+    await Promise.all([
+      refreshCourses(),
+      refreshChapters(),
+      refreshLessons(),
+      refreshAssignments(),
     ]);
   },
-  authenticate(email: string, password: string): AdminUser | null {
-    return (
-      state.users.find(
-        (u) =>
-          u.email.toLowerCase() === email.trim().toLowerCase() &&
-          u.password === password
-      ) ?? null
+
+  // ----- chapters -----
+  async createChapter(input: Omit<AdminChapter, "id" | "order">) {
+    const c = await chaptersDb.createChapter(input);
+    await refreshChapters();
+    return {
+      id: c.id,
+      title: c.title,
+      order: c.order,
+      courseId: c.courseId,
+    } as AdminChapter;
+  },
+  async updateChapter(id: string, patch: Partial<AdminChapter>) {
+    await chaptersDb.updateChapter(id, patch);
+    await refreshChapters();
+  },
+  async deleteChapter(id: string) {
+    await chaptersDb.deleteChapter(id);
+    await Promise.all([refreshChapters(), refreshLessons()]);
+  },
+  async reorderChapters(courseId: string, orderedIds: string[]) {
+    await chaptersDb.reorderChapters(courseId, orderedIds);
+    await refreshChapters();
+  },
+
+  // ----- lessons -----
+  async createLesson(
+    input: Omit<AdminLesson, "id" | "order" | "quiz"> & { order?: number }
+  ) {
+    const created = await lessonsDb.createLesson({
+      title: input.title,
+      description: input.description,
+      videoUrl: input.videoUrl ?? null,
+      content: input.content ?? null,
+      attachments: input.attachments ?? [],
+      courseId: input.courseId,
+      chapterId: input.chapterId,
+      hasQuiz: input.hasQuiz,
+      isLocked: input.isLocked,
+      order: input.order,
+    });
+    await refreshLessons();
+    return {
+      id: created.id,
+      title: created.title,
+      description: created.description,
+      videoUrl: created.videoUrl ?? undefined,
+      content: created.content ?? undefined,
+      attachments: created.attachments ?? [],
+      order: created.order,
+      courseId: created.courseId,
+      chapterId: created.chapterId,
+      hasQuiz: created.hasQuiz,
+      quiz: null,
+      isLocked: created.isLocked,
+    } as AdminLesson;
+  },
+  async updateLesson(id: string, patch: Partial<AdminLesson>) {
+    const dbPatch: Parameters<typeof lessonsDb.updateLesson>[1] = {};
+    if (patch.title !== undefined) dbPatch.title = patch.title;
+    if (patch.description !== undefined) dbPatch.description = patch.description;
+    if (patch.videoUrl !== undefined) dbPatch.videoUrl = patch.videoUrl ?? null;
+    if (patch.content !== undefined) dbPatch.content = patch.content ?? null;
+    if (patch.attachments !== undefined) dbPatch.attachments = patch.attachments;
+    if (patch.order !== undefined) dbPatch.order = patch.order;
+    if (patch.courseId !== undefined) dbPatch.courseId = patch.courseId;
+    if (patch.chapterId !== undefined) dbPatch.chapterId = patch.chapterId;
+    if (patch.hasQuiz !== undefined) dbPatch.hasQuiz = patch.hasQuiz;
+    if (patch.isLocked !== undefined) dbPatch.isLocked = patch.isLocked;
+    await lessonsDb.updateLesson(id, dbPatch);
+    await refreshLessons();
+  },
+  async deleteLesson(id: string) {
+    await lessonsDb.deleteLesson(id);
+    await refreshLessons();
+  },
+  async moveLesson(id: string, direction: "up" | "down") {
+    await lessonsDb.moveLesson(id, direction);
+    await refreshLessons();
+  },
+
+  // ----- users -----
+  async createUser(_input: Omit<AdminUser, "id">) {
+    // Creating auth users requires a privileged server-side flow.
+    // Not yet wired in stage C. UI will still get a refresh.
+    console.warn(
+      "[adminStore] createUser is not supported via the cloud yet — will be added with a server-side endpoint."
     );
+    await refreshUsers();
+    return null as unknown as AdminUser;
+  },
+  async updateUser(id: string, patch: Partial<AdminUser>) {
+    const profilePatch: Parameters<typeof usersDb.updateProfile>[1] = {};
+    if (patch.fullName !== undefined) profilePatch.fullName = patch.fullName;
+    if (patch.email !== undefined) profilePatch.email = patch.email;
+    if (Object.keys(profilePatch).length > 0) {
+      await usersDb.updateProfile(id, profilePatch);
+    }
+    if (patch.role !== undefined) {
+      await usersDb.setUserRole(id, patch.role);
+    }
+    await refreshUsers();
+  },
+  async deleteUser(id: string) {
+    // Best effort: removes the profile + role; auth user remains.
+    await Promise.all([
+      // delete role rows
+      usersDb.setUserRole(id, "user").catch(() => {}),
+    ]);
+    // delete profile (admin policy)
+    const { supabase } = await import("@/integrations/supabase/client");
+    await supabase.from("profiles").delete().eq("id", id);
+    await Promise.all([refreshUsers(), refreshAssignments()]);
+  },
+
+  // ----- assignments -----
+  async setAssignments(userId: string, courseIds: string[]) {
+    await assignmentsDb.setAssignmentsForUser(userId, courseIds);
+    await refreshAssignments();
+  },
+
+  // Legacy auth helpers — unused now (AuthContext uses supabase.auth)
+  authenticate(_email: string, _password: string): AdminUser | null {
+    return null;
   },
   getUserById(id: string): AdminUser | null {
-    return state.users.find((user) => user.id === id) ?? null;
+    return state.users.find((u) => u.id === id) ?? null;
   },
   assignedCoursesFor(userId: string): string[] {
     return state.assignments
@@ -373,22 +388,14 @@ export const adminStore = {
 export function useAdminStore<T>(selector: (s: StoreState) => T): T {
   return useSyncExternalStore(
     adminStore.subscribe,
-    () => selector(adminStore.getState()),
-    () => selector(adminStore.getState())
+    () => selector(state),
+    () => selector(state)
   );
 }
 
 export function useAdminStoreHydration() {
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
-      state = JSON.parse(raw) as StoreState;
-      emit();
-    } catch {
-      /* ignore */
-    }
+    void ensureHydrated();
   }, []);
 }
 
