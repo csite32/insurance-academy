@@ -52,7 +52,18 @@ export function useCourseProgress(
   const isGuest = !userId || userId === "guest";
   const isValidCourse = !!courseId && courseId !== "missing";
 
-  // Initial load + reload on user/course change
+  // Keep latest totalLessons in a ref so we don't reload progress when it changes.
+  const totalLessonsRef = useRef(totalLessons);
+  useEffect(() => {
+    totalLessonsRef.current = totalLessons;
+    // Recompute status against new total without refetching.
+    setProgress((p) => ({
+      ...p,
+      status: computeStatus(p.completedLessonIds.length, totalLessons),
+    }));
+  }, [totalLessons]);
+
+  // Initial load + reload on user/course change ONLY.
   useEffect(() => {
     setProgress(empty(userId, courseId));
     lastWrittenLessonRef.current = null;
@@ -66,33 +77,32 @@ export function useCourseProgress(
         ]);
         if (cancelled) return;
         const completedLessonIds = rows.map((r) => r.lessonId);
+        const tl = totalLessonsRef.current;
         const startedAt =
           rows.length > 0
-            ? rows
-                .map((r) => r.completedAt)
-                .sort()[0] ?? null
+            ? rows.map((r) => r.completedAt).sort()[0] ?? null
             : null;
         setProgress({
           userId,
           courseId,
           completedLessonIds,
           lastLessonId: lv?.lessonId ?? null,
-          status: computeStatus(completedLessonIds.length, totalLessons),
+          status: computeStatus(completedLessonIds.length, tl),
           startedAt,
           completedAt:
-            totalLessons > 0 && completedLessonIds.length >= totalLessons
+            tl > 0 && completedLessonIds.length >= tl
               ? rows.map((r) => r.completedAt).sort().slice(-1)[0] ?? null
               : null,
         });
         if (lv?.lessonId) lastWrittenLessonRef.current = lv.lessonId;
-      } catch {
-        /* ignore: keep empty */
+      } catch (err) {
+        console.error("[progress] initial load failed", err);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [userId, courseId, totalLessons, isGuest, isValidCourse]);
+  }, [userId, courseId, isGuest, isValidCourse]);
 
   // Realtime: keep this user's progress in sync across tabs/devices
   useEffect(() => {
@@ -104,19 +114,20 @@ export function useCourseProgress(
           getLastViewed(userId, courseId),
         ]);
         const completedLessonIds = rows.map((r) => r.lessonId);
+        const tl = totalLessonsRef.current;
         setProgress((p) => ({
           ...p,
           completedLessonIds,
           lastLessonId: lv?.lessonId ?? p.lastLessonId,
-          status: computeStatus(completedLessonIds.length, totalLessons),
+          status: computeStatus(completedLessonIds.length, tl),
         }));
-      } catch {
-        /* ignore */
+      } catch (err) {
+        console.error("[progress] realtime refresh failed", err);
       }
     };
     const unsub = subscribeProgress(userId, refresh);
     return unsub;
-  }, [userId, courseId, totalLessons, isGuest, isValidCourse]);
+  }, [userId, courseId, isGuest, isValidCourse]);
 
   const setLastLesson = useCallback(
     (lessonId: string) => {
