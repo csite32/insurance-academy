@@ -102,13 +102,12 @@ export async function unmarkLessonCompleted(
 // ---------- Last Viewed ----------
 
 export async function getLastViewed(
-  userId: string
+  userId: string,
+  courseId?: string
 ): Promise<DbLastViewed | null> {
-  const { data, error } = await supabase
-    .from("last_viewed")
-    .select("*")
-    .eq("user_id", userId)
-    .maybeSingle();
+  let q = supabase.from("last_viewed").select("*").eq("user_id", userId);
+  if (courseId) q = q.eq("course_id", courseId);
+  const { data, error } = await q.maybeSingle();
   if (error) throw error;
   return data ? fromLastViewed(data as LastViewedRow) : null;
 }
@@ -127,7 +126,7 @@ export async function setLastViewed(
         lesson_id: lessonId,
         viewed_at: new Date().toISOString(),
       } as never,
-      { onConflict: "user_id" }
+      { onConflict: "user_id,course_id" }
     );
   if (error) throw error;
 }
