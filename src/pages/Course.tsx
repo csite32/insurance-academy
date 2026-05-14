@@ -32,7 +32,7 @@ const CoursePage = () => {
     (isAdmin || (user?.assignedCourses ?? []).includes(resolvedCourse.id));
   const course =
     resolvedCourse ?? {
-      id: id || "missing",
+      id: "",
       title: "",
       description: "",
       learningMode: "free" as const,
@@ -43,9 +43,10 @@ const CoursePage = () => {
 
   const flatLessons = useMemo(() => getFlatLessons(course), [course]);
   const total = flatLessons.length;
+  const progressCourseId = hydrated && resolvedCourse ? resolvedCourse.id : "";
 
   const { progress, setLastLesson, toggleComplete, percent, completedCount } =
-    useCourseProgress(user?.id ?? "guest", course.id, total);
+    useCourseProgress(user?.id ?? "guest", progressCourseId, total);
 
   const [activeId, setActiveId] = useState<string>("");
 
@@ -115,6 +116,16 @@ const CoursePage = () => {
             ייתכן שהקורס הוסר או שהקישור שגוי.
           </p>
         </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!hydrated) {
+    return (
+      <div dir="rtl" className="min-h-screen bg-background">
+        <Header />
+        <main className="container py-20 text-center text-muted-foreground">טוען קורס...</main>
         <Footer />
       </div>
     );
