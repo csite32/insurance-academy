@@ -127,7 +127,7 @@ export async function setLastViewed(
         lesson_id: lessonId,
         viewed_at: new Date().toISOString(),
       } as never,
-      { onConflict: "user_id" }
+      { onConflict: "user_id,course_id" }
     );
   if (error) throw error;
 }
