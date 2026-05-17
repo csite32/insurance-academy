@@ -32,7 +32,7 @@ const CoursePage = () => {
     (isAdmin || (user?.assignedCourses ?? []).includes(resolvedCourse.id));
   const course =
     resolvedCourse ?? {
-      id: "",
+      id: id || "missing",
       title: "",
       description: "",
       learningMode: "free" as const,
@@ -43,20 +43,12 @@ const CoursePage = () => {
 
   const flatLessons = useMemo(() => getFlatLessons(course), [course]);
   const total = flatLessons.length;
-  const progressCourseId = hydrated && resolvedCourse ? resolvedCourse.id : "";
 
   const { progress, setLastLesson, toggleComplete, percent, completedCount } =
-    useCourseProgress(user?.id ?? "guest", progressCourseId, total);
+    useCourseProgress(user?.id ?? "guest", course.id, total);
 
-  const [activeId, setActiveId] = useState<string>("");
-
-  // Once progress + lessons are loaded, default activeId to the
-  // last-viewed lesson (or the first lesson).
-  useEffect(() => {
-    if (activeId) return;
-    const next = progress.lastLessonId ?? flatLessons[0]?.id ?? "";
-    if (next) setActiveId(next);
-  }, [activeId, progress.lastLessonId, flatLessons]);
+  const initialLessonId = progress.lastLessonId ?? flatLessons[0]?.id ?? "";
+  const [activeId, setActiveId] = useState(initialLessonId);
 
   useEffect(() => {
     if (activeId) setLastLesson(activeId);
@@ -116,16 +108,6 @@ const CoursePage = () => {
             ייתכן שהקורס הוסר או שהקישור שגוי.
           </p>
         </main>
-        <Footer />
-      </div>
-    );
-  }
-
-  if (!hydrated) {
-    return (
-      <div dir="rtl" className="min-h-screen bg-background">
-        <Header />
-        <main className="container py-20 text-center text-muted-foreground">טוען קורס...</main>
         <Footer />
       </div>
     );

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   UserCircle2,
@@ -16,7 +16,6 @@ import Footer from "@/components/layout/Footer";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdminStore, useAdminStoreHydration, getIcon } from "@/data/adminStore";
 import type { CourseProgress, CourseStatus } from "@/hooks/useCourseProgress";
-import { listLastViewedForUser, listProgressForUser } from "@/lib/db/progressDb";
 
 type CourseRow = {
   id: string;
@@ -29,6 +28,15 @@ type CourseRow = {
   status: CourseStatus;
   lastLessonId: string | null;
   startedAt: string | null;
+};
+
+const readProgress = (userId: string, courseId: string): CourseProgress | null => {
+  try {
+    const raw = localStorage.getItem(`progress:${userId}:${courseId}`);
+    return raw ? (JSON.parse(raw) as CourseProgress) : null;
+  } catch {
+    return null;
+  }
 };
 
 const statusLabel: Record<CourseStatus, string> = {
@@ -50,77 +58,6 @@ const Profile = () => {
   const adminLessons = useAdminStore((s) => s.lessons);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [progressByCourse, setProgressByCourse] = useState<Record<string, CourseProgress>>({});
-
-  useEffect(() => {
-    if (!user) {
-      setProgressByCourse({});
-      return;
-    }
-
-    let cancelled = false;
-    void Promise.all([listProgressForUser(user.id), listLastViewedForUser(user.id)])
-      .then(([progressRows, lastViewedRows]) => {
-        if (cancelled) return;
-
-        const byCourse: Record<string, CourseProgress> = {};
-
-        progressRows.forEach((row) => {
-          const existing = byCourse[row.courseId] ?? {
-            userId: row.userId,
-            courseId: row.courseId,
-            completedLessonIds: [],
-            lastLessonId: null,
-            status: "not_started" as CourseStatus,
-            startedAt: null,
-            completedAt: null,
-          };
-
-          existing.completedLessonIds.push(row.lessonId);
-          existing.startedAt = existing.startedAt
-            ? [existing.startedAt, row.completedAt].sort()[0]
-            : row.completedAt;
-          existing.completedAt = existing.completedAt
-            ? [existing.completedAt, row.completedAt].sort().slice(-1)[0]
-            : row.completedAt;
-          byCourse[row.courseId] = existing;
-        });
-
-        lastViewedRows.forEach((row) => {
-          const existing = byCourse[row.courseId] ?? {
-            userId: row.userId,
-            courseId: row.courseId,
-            completedLessonIds: [],
-            lastLessonId: null,
-            status: "not_started" as CourseStatus,
-            startedAt: null,
-            completedAt: null,
-          };
-          existing.lastLessonId = row.lessonId;
-          byCourse[row.courseId] = existing;
-        });
-
-        Object.values(byCourse).forEach((entry) => {
-          const totalLessons = adminLessons.filter((l) => l.courseId === entry.courseId).length;
-          entry.status =
-            totalLessons > 0 && entry.completedLessonIds.length >= totalLessons
-              ? "completed"
-              : entry.completedLessonIds.length > 0
-                ? "in_progress"
-                : "not_started";
-        });
-
-        setProgressByCourse(byCourse);
-      })
-      .catch((error) => {
-        console.error("[profile] failed to load cloud progress", error);
-        if (!cancelled) setProgressByCourse({});
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user, adminLessons]);
 
   const rows: CourseRow[] = useMemo(() => {
     if (!user) return [];
@@ -128,7 +65,7 @@ const Profile = () => {
       .filter((c) => user.assignedCourses.includes(c.id))
       .map((c) => {
         const totalLessons = adminLessons.filter((l) => l.courseId === c.id).length;
-        const p = progressByCourse[c.id] ?? null;
+        const p = readProgress(user.id, c.id);
         const completedLessons = p?.completedLessonIds.length ?? 0;
         const percent =
           totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
@@ -147,7 +84,7 @@ const Profile = () => {
           startedAt: p?.startedAt ?? null,
         };
       });
-  }, [user, adminCourses, adminLessons, progressByCourse]);
+  }, [user, adminCourses, adminLessons]);
 
   if (!user) return null;
 
