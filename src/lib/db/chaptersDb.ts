@@ -106,7 +106,7 @@ export async function reorderChapters(
 
 export function subscribeChapters(onChange: () => void) {
   const channel = supabase
-    .channel("db:chapters")
+    .channel("db:chapters:" + Math.random().toString(36).slice(2))
     .on(
       "postgres_changes",
       { event: "*", schema: "public", table: "chapters" },
