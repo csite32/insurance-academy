@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { listAssignmentsForUser } from "@/lib/db/assignmentsDb";
+import { uploadAvatar as uploadAvatarDb, removeAvatar as removeAvatarDb } from "@/lib/db/usersDb";
 
 export type Role = "user" | "admin";
 
@@ -23,7 +24,9 @@ type AuthContextValue = {
   loading: boolean;
   login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   logout: () => Promise<void>;
-  updateAvatar: (dataUrl: string | null) => void;
+  uploadAvatar: (file: File) => Promise<void>;
+  removeAvatar: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -130,14 +133,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setSession(null);
   };
 
-  // Local-only avatar update for now; cloud upload will arrive in stage E.
-  const updateAvatar = (dataUrl: string | null) => {
-    setUser((prev) => (prev ? { ...prev, avatarUrl: dataUrl } : prev));
+  const refreshUser = async () => {
+    const { data } = await supabase.auth.getSession();
+    const uid = data.session?.user?.id;
+    if (!uid) return;
+    const u = await hydrateUser(uid);
+    setUser(u);
+  };
+
+  const uploadAvatar = async (file: File) => {
+    if (!user) throw new Error("no user");
+    const url = await uploadAvatarDb(user.id, file);
+    setUser((prev) => (prev ? { ...prev, avatarUrl: url } : prev));
+  };
+
+  const removeAvatar = async () => {
+    if (!user) return;
+    await removeAvatarDb(user.id);
+    setUser((prev) => (prev ? { ...prev, avatarUrl: null } : prev));
   };
 
   return (
     <AuthContext.Provider
-      value={{ user, session, loading, login, logout, updateAvatar }}
+      value={{ user, session, loading, login, logout, uploadAvatar, removeAvatar, refreshUser }}
     >
       {children}
     </AuthContext.Provider>
