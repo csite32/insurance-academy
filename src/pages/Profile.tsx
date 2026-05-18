@@ -132,6 +132,8 @@ const Profile = () => {
     setUploading(true);
     try {
       await uploadAvatar(file);
+      setPreviewUrl(null);
+      URL.revokeObjectURL(localUrl);
     } catch (err) {
       console.error("[avatar] upload failed", err);
       setUploadError("העלאת התמונה נכשלה, נסי שוב");
