@@ -18,7 +18,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
+
+const initials = (name: string) =>
+  name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase();
 
 type FormState = {
   fullName: string;
@@ -104,7 +114,15 @@ const AdminUsers = () => {
                 const count = assignments.filter((a) => a.userId === u.id).length;
                 return (
                   <tr key={u.id} className="border-t border-border">
-                    <td className="p-3 font-semibold">{u.fullName}</td>
+                    <td className="p-3 font-semibold">
+                      <div className="flex items-center gap-2">
+                        <Avatar className="h-8 w-8">
+                          {u.avatarUrl ? <AvatarImage src={u.avatarUrl} alt={u.fullName} /> : null}
+                          <AvatarFallback className="text-[11px]">{initials(u.fullName) || "?"}</AvatarFallback>
+                        </Avatar>
+                        <span>{u.fullName}</span>
+                      </div>
+                    </td>
                     <td className="p-3 text-muted-foreground" dir="ltr">
                       {u.email}
                     </td>
