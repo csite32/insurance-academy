@@ -53,11 +53,13 @@ const statusClasses: Record<CourseStatus, string> = {
 
 const Profile = () => {
   useAdminStoreHydration();
-  const { user, updateAvatar } = useAuth();
+  const { user, uploadAvatar, removeAvatar } = useAuth();
   const adminCourses = useAdminStore((s) => s.courses);
   const adminLessons = useAdminStore((s) => s.lessons);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const rows: CourseRow[] = useMemo(() => {
     if (!user) return [];
@@ -113,7 +115,7 @@ const Profile = () => {
 
   const onPickFile = () => fileInputRef.current?.click();
 
-  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     setUploadError(null);
     const file = e.target.files?.[0];
     if (!file) return;
@@ -125,15 +127,33 @@ const Profile = () => {
       setUploadError("גודל מקסימלי לתמונה הוא 2MB");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") updateAvatar(reader.result);
-    };
-    reader.readAsDataURL(file);
-    e.target.value = "";
+    const localUrl = URL.createObjectURL(file);
+    setPreviewUrl(localUrl);
+    setUploading(true);
+    try {
+      await uploadAvatar(file);
+    } catch (err) {
+      console.error("[avatar] upload failed", err);
+      setUploadError("העלאת התמונה נכשלה, נסי שוב");
+      setPreviewUrl(null);
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
   };
 
-  const removeAvatar = () => updateAvatar(null);
+  const onRemoveAvatar = async () => {
+    setUploadError(null);
+    setPreviewUrl(null);
+    try {
+      await removeAvatar();
+    } catch (err) {
+      console.error("[avatar] remove failed", err);
+      setUploadError("הסרת התמונה נכשלה");
+    }
+  };
+
+  const displayedAvatar = previewUrl ?? user.avatarUrl;
 
   const roleLabel = user.role === "admin" ? "מנהל מערכת" : "לומד";
 
@@ -168,9 +188,9 @@ const Profile = () => {
           <div className="lg:col-span-1 rounded-3xl border border-border bg-card p-6 shadow-card">
             <div className="flex flex-col items-center text-center">
               <div className="relative">
-                {user.avatarUrl ? (
+                {displayedAvatar ? (
                   <img
-                    src={user.avatarUrl}
+                    src={displayedAvatar}
                     alt={user.fullName}
                     className="h-24 w-24 rounded-full object-cover border-4 border-card shadow-card"
                   />
@@ -181,8 +201,9 @@ const Profile = () => {
                 )}
                 <button
                   onClick={onPickFile}
+                  disabled={uploading}
                   aria-label="עדכון תמונה"
-                  className="absolute -bottom-1 -left-1 rounded-full bg-primary text-primary-foreground p-2 shadow-glow hover:brightness-110 transition"
+                  className="absolute -bottom-1 -left-1 rounded-full bg-primary text-primary-foreground p-2 shadow-glow hover:brightness-110 transition disabled:opacity-60"
                 >
                   <Camera className="h-4 w-4" />
                 </button>
@@ -203,13 +224,15 @@ const Profile = () => {
               <div className="mt-4 flex flex-col gap-2 w-full">
                 <button
                   onClick={onPickFile}
-                  className="w-full rounded-full bg-gradient-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-glow hover:brightness-110 transition"
+                  disabled={uploading}
+                  className="w-full rounded-full bg-gradient-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-glow hover:brightness-110 transition disabled:opacity-60"
                 >
-                  עדכון תמונה
+                  {uploading ? "מעלה..." : "עדכון תמונה"}
                 </button>
-                {user.avatarUrl && (
+                {(user.avatarUrl || previewUrl) && (
                   <button
-                    onClick={removeAvatar}
+                    onClick={onRemoveAvatar}
+                    disabled={uploading}
                     className="w-full rounded-full border border-border px-4 py-2 text-xs text-muted-foreground hover:text-foreground transition"
                   >
                     הסרת תמונה
