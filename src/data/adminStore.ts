@@ -58,6 +58,7 @@ export type AdminUser = {
   email: string;
   password: string;
   role: Role;
+  avatarUrl?: string | null;
 };
 
 export type AdminAssignment = {
@@ -160,6 +161,7 @@ async function refreshUsers() {
         email: u.email,
         password: "",
         role: u.role,
+        avatarUrl: u.avatarUrl,
       })),
     });
   } catch {
