@@ -14,6 +14,7 @@ import * as chaptersDb from "@/lib/db/chaptersDb";
 import * as lessonsDb from "@/lib/db/lessonsDb";
 import * as usersDb from "@/lib/db/usersDb";
 import * as assignmentsDb from "@/lib/db/assignmentsDb";
+import { supabase } from "@/integrations/supabase/client";
 
 export type LearningMode = "sequential" | "free";
 export type CourseStatus = "active" | "draft";
@@ -108,6 +109,8 @@ let hydrated = false;
 let hydrating: Promise<void> | null = null;
 let unsubAll: Array<() => void> = [];
 let hydratedAt = 0;
+let currentAuthUserId: string | null = null;
+let authListenerStarted = false;
 
 export function isHydrated() {
   return hydrated;
@@ -194,9 +197,18 @@ function startSubscriptions() {
 }
 
 export async function ensureHydrated(): Promise<void> {
+  startAuthListener();
   if (hydrated) return;
   if (hydrating) return hydrating;
   hydrating = (async () => {
+    // Wait for an auth session before issuing reads — RLS requires authenticated.
+    const { data } = await supabase.auth.getSession();
+    currentAuthUserId = data.session?.user?.id ?? null;
+    if (!currentAuthUserId) {
+      // Not signed in yet; the auth listener will re-trigger hydration on sign-in.
+      hydrating = null;
+      return;
+    }
     await hydrateAll();
     startSubscriptions();
     hydrated = true;
@@ -204,6 +216,31 @@ export async function ensureHydrated(): Promise<void> {
     emit();
   })();
   return hydrating;
+}
+
+function startAuthListener() {
+  if (authListenerStarted) return;
+  authListenerStarted = true;
+  supabase.auth.onAuthStateChange((_event, session) => {
+    const nextId = session?.user?.id ?? null;
+    if (nextId === currentAuthUserId) return;
+    currentAuthUserId = nextId;
+    if (!nextId) {
+      // Signed out — clear state and allow re-hydration on next sign-in.
+      hydrated = false;
+      hydrating = null;
+      unsubAll.forEach((u) => u());
+      unsubAll = [];
+      setState({ courses: [], chapters: [], lessons: [], users: [], assignments: [] });
+      return;
+    }
+    // Signed in (or switched user) — force re-hydration.
+    hydrated = false;
+    hydrating = null;
+    unsubAll.forEach((u) => u());
+    unsubAll = [];
+    void ensureHydrated();
+  });
 }
 
 // ---------- Public API (signature-compatible with previous store) ----------
