@@ -101,7 +101,7 @@ export async function deleteCourse(id: string): Promise<void> {
 
 export function subscribeCourses(onChange: () => void) {
   const channel = supabase
-    .channel("db:courses:" + Math.random().toString(36).slice(2))
+    .channel("db:courses")
     .on(
       "postgres_changes",
       { event: "*", schema: "public", table: "courses" },

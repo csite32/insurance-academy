@@ -165,7 +165,7 @@ export async function moveLesson(
 
 export function subscribeLessons(onChange: () => void) {
   const channel = supabase
-    .channel("db:lessons:" + Math.random().toString(36).slice(2))
+    .channel("db:lessons")
     .on(
       "postgres_changes",
       { event: "*", schema: "public", table: "lessons" },

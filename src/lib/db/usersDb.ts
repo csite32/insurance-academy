@@ -114,7 +114,7 @@ export async function uploadAvatar(
 
 export function subscribeUsers(onChange: () => void) {
   const c1 = supabase
-    .channel("db:profiles:" + Math.random().toString(36).slice(2))
+    .channel("db:profiles")
     .on(
       "postgres_changes",
       { event: "*", schema: "public", table: "profiles" },
@@ -122,7 +122,7 @@ export function subscribeUsers(onChange: () => void) {
     )
     .subscribe();
   const c2 = supabase
-    .channel("db:user_roles:" + Math.random().toString(36).slice(2))
+    .channel("db:user_roles")
     .on(
       "postgres_changes",
       { event: "*", schema: "public", table: "user_roles" },
