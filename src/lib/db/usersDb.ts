@@ -101,15 +101,24 @@ export async function uploadAvatar(
   userId: string,
   file: File
 ): Promise<string> {
-  const ext = file.name.split(".").pop() || "png";
-  const path = `${userId}/avatar-${Date.now()}.${ext}`;
+  const path = `${userId}/avatar`;
   const { error: upErr } = await supabase.storage
     .from("avatars")
-    .upload(path, file, { upsert: true, cacheControl: "3600" });
+    .upload(path, file, {
+      upsert: true,
+      cacheControl: "3600",
+      contentType: file.type || "image/png",
+    });
   if (upErr) throw upErr;
   const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-  await updateProfile(userId, { avatarUrl: data.publicUrl });
-  return data.publicUrl;
+  const url = `${data.publicUrl}?t=${Date.now()}`;
+  await updateProfile(userId, { avatarUrl: url });
+  return url;
+}
+
+export async function removeAvatar(userId: string): Promise<void> {
+  await supabase.storage.from("avatars").remove([`${userId}/avatar`]).catch(() => {});
+  await updateProfile(userId, { avatarUrl: null });
 }
 
 export function subscribeUsers(onChange: () => void) {
