@@ -118,16 +118,22 @@ const AdminAssignments = () => {
       else n.delete(courseId);
       return n;
     });
+    const ids = (lessonsByCourse.get(courseId) ?? []).map((l) => l.id);
     if (checked) {
       // Auto-mark all lessons of this course in the visual state
-      const ids = (lessonsByCourse.get(courseId) ?? []).map((l) => l.id);
       setDraftLessons((prev) => {
         const n = new Set(prev);
         ids.forEach((id) => n.add(id));
         return n;
       });
+    } else {
+      // Unchecking "full course" clears all lesson selections for this course.
+      setDraftLessons((prev) => {
+        const n = new Set(prev);
+        ids.forEach((id) => n.delete(id));
+        return n;
+      });
     }
-    // When unchecking: keep lesson selections as-is per spec.
   };
 
   const toggleLesson = (courseId: string, lessonId: string, checked: boolean) => {
