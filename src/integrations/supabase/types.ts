@@ -141,6 +141,27 @@ export type Database = {
           },
         ]
       }
+      lesson_assignments: {
+        Row: {
+          course_id: string
+          created_at: string
+          lesson_id: string
+          user_id: string
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          lesson_id: string
+          user_id: string
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          lesson_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       lesson_progress: {
         Row: {
           completed_at: string
