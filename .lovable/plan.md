@@ -1,78 +1,163 @@
+## שלב F: הרשאות ברמת שיעור בודד — תוכנית מלאה
 
-# העברה לענן Lovable Cloud
+### עקרונות
+- שינוי תשתיתי רגיש — מבוצע בשלבים נפרדים, עצירה לאישור בין שלב לשלב.
+- ללא שינוי עיצוב כללי, ללא פגיעה ב-Auth/Progress/Avatar/Admin/Course/Profile.
+- `assignments` הקיים נשמר (קורס מלא). מתווסף `lesson_assignments` (שיעור בודד).
+- קבצי Mock נשארים אך לא בשימוש כמקור אמת.
 
-מטרה: לעבור ממקור נתונים מבוסס localStorage למקור נתונים יחיד בענן (Lovable Cloud) עבור משתמשים, קורסים, פרקים, שיעורים, שיוכים, התקדמות, שיעור אחרון ותמונת פרופיל. localStorage יישאר רק כ־cache/fallback מקומי.
+### כללי תצוגה למשתמש רגיל (מחייבים בכל המסכים)
+- **לא מוצגים** קורסים שאינם משויכים (לא כקורס מלא ולא דרך שיעור בודד).
+- **אין כפתורי / כרטיסי "אין לך גישה" / "נעול"** בשום מקום.
+- קורס שמשויך במלואו → מוצג רגיל.
+- קורס שיש בו רק שיעורים בודדים → מוצג בעמוד הבית עם תגית **"שיעורים נבחרים"**.
+- בתוך קורס כזה: רק השיעורים המשויכים מוצגים. פרקים ריקים מוסתרים. אין שיעורים נעולים.
+- Progress מחושב **רק** לפי השיעורים הזמינים למשתמש.
 
-## עקרונות
-- אין שינוי עיצוב, אין שינוי Layout, אין פיצ׳רים חדשים.
-- כל קריאה/כתיבה לנתונים מרכזיים תעבור דרך Lovable Cloud.
-- הנתונים הקיימים מ־localStorage יהפכו ל־seed ראשוני בעת האכלוס הראשון של ה־DB.
-- כל המסכים הקיימים ימשיכו לעבוד דרך אותו `adminStore` שיועבר לקוד אסינכרוני מבוסס Supabase, כדי שלא נצטרך לשכתב מסכים.
+---
 
-## אימות (Authentication)
-שני משתמשי ה־seed (`demo@academy.co.il`, `admin@academy.co.il`, סיסמה `123456`) ייווצרו ב־Supabase Auth כדי לאפשר login אמיתי דרך Lovable Cloud. תפקיד `admin` יישמר בטבלה נפרדת `user_roles` (לא ב־profiles) כדי למנוע privilege escalation.
-- email auto-confirm יופעל כדי שלא תידרש אימות מייל בשלב זה.
-- ההרשמה תישאר סגורה (אין UI ל־signup חדש — כך נשמרת ההנחיה "לא להוסיף פיצ׳רים").
-- עמוד ה־Login הקיים יחובר ל־`supabase.auth.signInWithPassword` במקום ל־mock authenticate.
+### שלב F1 — טבלה ומודל נתונים
 
-## סכמת DB
+**מיגרציה ל-Supabase:**
 
-```text
-profiles            (id=auth.uid, full_name, email, avatar_url)
-user_roles          (user_id, role enum: 'admin'|'user')   -- has_role() SECURITY DEFINER
-courses             (id text PK, title, description, image, icon_key, learning_mode, status, created_at)
-chapters            (id text PK, course_id FK, title, "order")
-lessons             (id text PK, course_id FK, chapter_id FK, title, description,
-                     video_url, content, attachments text[], "order", has_quiz, is_locked)
-assignments         (user_id, course_id)   -- PK composite
-lesson_progress     (user_id, lesson_id, completed_at)   -- PK composite
-last_viewed         (user_id PK, lesson_id, course_id, viewed_at)
+טבלה `lesson_assignments`:
+- `user_id` (uuid, NOT NULL)
+- `course_id` (text, NOT NULL)
+- `lesson_id` (text, NOT NULL)
+- `created_at` (timestamptz default now())
+- Primary Key: `(user_id, lesson_id)`
+- Index: `(user_id, course_id)`, `(course_id)`
+
+RLS:
+- `lesson_assignments_read_own_or_admin` (SELECT): `auth.uid() = user_id OR has_role(auth.uid(),'admin')`
+- `lesson_assignments_admin_write` (ALL): `has_role(auth.uid(),'admin')`
+
+Realtime:
+- `ALTER PUBLICATION supabase_realtime ADD TABLE public.lesson_assignments`
+
+**שכבת DB** — קובץ חדש `src/lib/db/lessonAssignmentsDb.ts`:
+- `listAllLessonAssignments()` — לאדמין/הידרציה
+- `listLessonAssignmentsForUser(userId)` → `Array<{ courseId, lessonId }>`
+- `setLessonAssignmentsForUser(userId, lessonIds: string[])` — מחיקה+הכנסה אטומית
+- `assignLesson` / `unassignLesson`
+- `subscribeLessonAssignments(cb)`
+
+**עצירה ובדיקה:** Build נקי, הטבלה נגישה ב-DB.
+
+---
+
+### שלב F2 — UI ניהול מלא ב-`AdminAssignments`
+
+**עדכון `adminStore`:**
+- שדה חדש: `lessonAssignments: { userId, courseId, lessonId }[]`
+- הידרציה מקבילה ל-`assignments`
+- מנוי Realtime נוסף
+- פעולה: `saveUserAssignments(userId, { fullCourses, lessons })` — מעדכנת את שתי הטבלאות
+
+**שדרוג `AdminAssignments.tsx`** (רכיבי shadcn קיימים בלבד, אותו עיצוב כללי):
+
+מבנה:
+```
+┌─ Input חיפוש משתמש (שם / אימייל) ──┐
+│                                     │
+├─ רשימת משתמשים מסוננת ─────────────┤
+│  בחירת משתמש                       │
+├─ פאנל שיוכים למשתמש הנבחר ─────────┤
+│  Accordion עבור כל קורס:           │
+│   [✓] קורס מלא   [תגית סטטוס] [▼] │
+│   תגיות: "קורס מלא" / "שיוך חלקי"  │
+│           / "לא משויך"             │
+│                                     │
+│   כשפתוח:                           │
+│   ├─ פרק 1                          │
+│   │  ├─ [✓] שיעור 1.1               │
+│   │  └─ [ ] שיעור 1.2               │
+│   └─ פרק 2 ...                      │
+│                                     │
+│  [שמור שינויים]  [בטל]              │
+└─────────────────────────────────────┘
 ```
 
-### RLS
-- `profiles`: כל אחד רואה ועורך את שלו; admin רואה הכל.
-- `user_roles`: SELECT למשתמש המחובר על השורות שלו; INSERT/UPDATE/DELETE רק לאדמין.
-- `courses`/`chapters`/`lessons`: SELECT לכל מחובר; INSERT/UPDATE/DELETE רק admin.
-- `assignments`: SELECT למשתמש על השורות שלו + admin רואה הכל; כתיבה רק admin.
-- `lesson_progress`, `last_viewed`: כל משתמש קורא/כותב רק את שלו.
+רכיבים: `Accordion`, `Checkbox`, `Badge`, `Input`, `Button`, `ScrollArea` — כולם קיימים.
 
-### Seed
-מיגרציה אחת תכניס את הקורסים/פרקים/שיעורים הקיימים (מתוך `src/data/courses.ts` ו־`courseDetail.ts`) ואת השיוכים של `demo` כך שהמערכת תעלה עם אותו תוכן שיש היום.
+התנהגות:
+- "קורס מלא" מסומן → כל השיעורים מסומנים אוטומטית, סטטוס = `קורס מלא`.
+- ביטול "קורס מלא" → לא מבטל את הסימונים האישיים, סטטוס עובר ל-`שיוך חלקי` או `לא משויך`.
+- סימון/ביטול שיעור כשהקורס לא מלא → `שיוך חלקי`.
+- כל השיעורים סומנו ידנית → ההצעה האוטומטית: סימון "קורס מלא".
+- State: `selectedUserId`, `draftFullCourses: Set`, `draftLessons: Set`, `dirty`.
+- שמירה: `saveUserAssignments` → `setAssignmentsForUser` + `setLessonAssignmentsForUser`. Toast הצלחה/שגיאה.
 
-## שינויים בקוד
+**עצירה ובדיקה:** המנהל יוצר/משנה שיוכים, הנתון נשמר נכון בענן.
 
-1. **`src/data/adminStore.ts`** — הופך לקליינט אסינכרוני מעל Supabase:
-   - הסרה של seed/localStorage כמקור אמת. נשאר רק cache בזיכרון + מנוי realtime על השינויים בטבלאות הרלוונטיות.
-   - `useAdminStoreHydration` יבצע `loadAll()` מה־DB.
-   - כל הפעולות (`createCourse`, `updateLesson`, `setAssignments` וכו׳) יבצעו `supabase.from(...).insert/update/delete` ויסתמכו על realtime לעדכון ה־cache.
-   - `authenticate` יוסר; ההזדהות תעבור ל־AuthContext.
+---
 
-2. **`src/contexts/AuthContext.tsx`** — שכתוב מינימלי:
-   - שימוש ב־`supabase.auth.onAuthStateChange` + `getSession`.
-   - שליפת profile + role + assignedCourses + last_viewed + completed_lessons מטבלאות ה־DB.
-   - `updateAvatar` יעלה ל־storage bucket `avatars` ויעדכן את `profiles.avatar_url`.
-   - `markLessonComplete` / `setLastViewed` יכתבו ל־`lesson_progress` / `last_viewed`.
+### שלב F3 — חיבור לפרונט (לוגיקת גישה)
 
-3. **`useCourseProgress`** — יקרא/יכתוב ל־`lesson_progress` ו־`last_viewed` במקום localStorage.
+**Helper משותף** — קובץ חדש `src/lib/access.ts`:
+- `getCourseAccessMode(courseId, assignedCourses, assignedLessonsByCourse)` → `'full' | 'partial' | 'none'`
+- `getVisibleCourseIds(...)` → רק קורסים עם `full` או `partial`
+- `getVisibleLessonIds(courseId, allLessons, ...)` → לפי mode
+- `getVisibleChapters(allChapters, visibleLessonIds, lessons)` → מסנן פרקים ריקים
+- Admin → רואה הכל.
 
-4. **Login / Profile / Course / Admin pages** — בלי שינוי עיצוב; רק התאמה ל־API החדש (async). מסכי loading קצרים בזמן fetch ראשוני.
+**עדכון `AuthContext`:**
+- שדה חדש: `assignedLessons: Array<{ courseId, lessonId }>`
+- טעינה ב-`hydrateUser` דרך `listLessonAssignmentsForUser`
 
-5. **Storage**: bucket ציבורי `avatars` עם policy שכל משתמש מעלה רק לתיקייה `${auth.uid}/`.
+**עדכון `CoursesSection` (עמוד הבית):**
+- שימוש ב-`getVisibleCourseIds` — קורסים `none` לא מוצגים כלל.
+- ספירת שיעורים = `getVisibleLessonIds(...).length`.
+- **תגית "שיעורים נבחרים"** על כרטיסי קורסים במצב `partial` (Badge קיים, ללא שינוי עיצוב כללי).
+- **הסרת כל מצב "נעול"** מ-`CourseCard` למשתמש רגיל — אם הקורס מוצג, הוא נגיש.
 
-## Fallback
-אם ה־fetch מהענן נכשל (offline), נשתמש ב־cache מקומי האחרון מ־localStorage לקריאה בלבד; כתיבות תמיד ינסו לענן ויחזירו שגיאה למשתמש אם נכשלו.
+**עדכון `ContinueLearning` / Profile:**
+- אותו helper — רק קורסים זמינים מוצגים. Progress לפי הגלוי בלבד.
 
-## בדיקות
-- Login כ־admin → שינוי שם קורס → התנתקות → Login כ־demo → רואים את השם המעודכן.
-- העלאת תמונת פרופיל → רענון → התמונה נשארת.
-- סימון שיעור כהושלם → רענון → נשאר מסומן.
-- שיוך קורס חדש מ־Admin → demo רואה אותו מיידית.
-- Build עובר, אין מסך לבן, RTL נשמר.
+**עצירה ובדיקה:** משתמש רגיל רואה רק תוכן שיש לו אליו גישה.
 
-## סדר ביצוע
-1. הרצת מיגרציית ה־DB + seed (המשתמש מאשר).
-2. יצירת שני משתמשי ה־Auth (`demo`, `admin`) + הקצאת role.
-3. עדכון `AuthContext` ל־Supabase Auth.
-4. שכתוב `adminStore` ל־Supabase.
-5. עדכון `useCourseProgress` ושאר נקודות הקריאה.
-6. בדיקה ידנית של תרחישים.
+---
+
+### שלב F4 — חיבור לעמוד קורס
+
+**עדכון `src/pages/Course.tsx`:**
+- חישוב `visibleLessonIds` ו-`visibleChapters` בעזרת ה-helper.
+- העברה ל-`LessonSidebar` ול-`LessonContent`.
+- שיעורים לא משויכים — לא מוצגים (לא נעולים).
+- פרקים ללא שיעורים גלויים — לא מוצגים.
+- ניווט בין שיעורים מוגבל לרשימה הגלויה.
+
+**עדכון `useCourseProgress`:**
+- פרמטר חדש אופציונלי `visibleLessonIds?: string[]`.
+- חישוב אחוז = `completedVisible / visibleLessonIds.length`.
+- **אין שינוי בכתיבה/קריאה מ-`lesson_progress` ו-`last_viewed`** — רק חישוב התצוגה משתנה.
+
+**עצירה ובדיקה:** עמוד קורס מציג רק שיעורים מותרים, פרקים ריקים מוסתרים, Progress נכון.
+
+---
+
+### שלב F5 — בדיקות סופיות
+
+1. משתמש עם קורס מלא רואה את כל הקורס + Progress רגיל.
+2. משתמש עם שיעורים בודדים רואה את הקורס בעמוד הבית עם תגית **"שיעורים נבחרים"**, ובתוך הקורס רק את השיעורים האלו.
+3. פרקים ריקים מוסתרים.
+4. אין כרטיסי/כפתורי "אין לך גישה" / "נעול" בשום מקום.
+5. קורסים שאינם משויכים כלל — אינם מוצגים.
+6. Progress = completed גלוי / סך גלוי.
+7. שיוך/ביטול במנהל מתעדכן בפרונט (Realtime).
+8. רענון שומר מצב.
+9. שמירת התקדמות שיעורים ממשיכה לעבוד (`lesson_progress`).
+10. Avatar/Header/Profile לא נפגעים.
+11. Build נקי, ללא שגיאות Console.
+
+---
+
+### לא נוגעים
+- `useCourseProgress` ברמת הקריאה/כתיבה ל-`lesson_progress`/`last_viewed`
+- מנגנון Avatar / Storage
+- `assignments` הקיים (קורס מלא)
+- RLS של שאר הטבלאות
+- עיצוב כללי / Layout / פונט
+- קבצי Mock
+
+**בסיום כל תת-שלב (F1 → F5)** — עצירה, דיווח, המתנה לאישור.
