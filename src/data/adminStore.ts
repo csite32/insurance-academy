@@ -14,6 +14,7 @@ import * as chaptersDb from "@/lib/db/chaptersDb";
 import * as lessonsDb from "@/lib/db/lessonsDb";
 import * as usersDb from "@/lib/db/usersDb";
 import * as assignmentsDb from "@/lib/db/assignmentsDb";
+import * as lessonAssignmentsDb from "@/lib/db/lessonAssignmentsDb";
 import { supabase } from "@/integrations/supabase/client";
 
 export type LearningMode = "sequential" | "free";
@@ -66,12 +67,19 @@ export type AdminAssignment = {
   courseId: string;
 };
 
+export type AdminLessonAssignment = {
+  userId: string;
+  courseId: string;
+  lessonId: string;
+};
+
 type StoreState = {
   courses: AdminCourse[];
   chapters: AdminChapter[];
   lessons: AdminLesson[];
   users: AdminUser[];
   assignments: AdminAssignment[];
+  lessonAssignments: AdminLessonAssignment[];
 };
 
 const ICONS: Record<string, LucideIcon> = {
@@ -92,6 +100,7 @@ let state: StoreState = {
   lessons: [],
   users: [],
   assignments: [],
+  lessonAssignments: [],
 };
 const listeners = new Set<() => void>();
 
@@ -177,6 +186,15 @@ async function refreshAssignments() {
     setState({ assignments: [] });
   }
 }
+async function refreshLessonAssignments() {
+  try {
+    const data = await lessonAssignmentsDb.listAllLessonAssignments();
+    setState({ lessonAssignments: data });
+  } catch {
+    // non-admin: only their own rows will be returned (RLS); empty for users without any.
+    setState({ lessonAssignments: [] });
+  }
+}
 
 async function hydrateAll() {
   await Promise.all([
@@ -185,6 +203,7 @@ async function hydrateAll() {
     refreshLessons().catch(() => {}),
     refreshUsers().catch(() => {}),
     refreshAssignments().catch(() => {}),
+    refreshLessonAssignments().catch(() => {}),
   ]);
 }
 
@@ -195,6 +214,11 @@ function startSubscriptions() {
   unsubAll.push(usersDb.subscribeUsers(() => void refreshUsers().catch(() => {})));
   unsubAll.push(
     assignmentsDb.subscribeAssignments(() => void refreshAssignments().catch(() => {}))
+  );
+  unsubAll.push(
+    lessonAssignmentsDb.subscribeLessonAssignments(
+      () => void refreshLessonAssignments().catch(() => {})
+    )
   );
 }
 
@@ -233,7 +257,14 @@ function startAuthListener() {
       hydrating = null;
       unsubAll.forEach((u) => u());
       unsubAll = [];
-      setState({ courses: [], chapters: [], lessons: [], users: [], assignments: [] });
+      setState({
+        courses: [],
+        chapters: [],
+        lessons: [],
+        users: [],
+        assignments: [],
+        lessonAssignments: [],
+      });
       return;
     }
     // Signed in (or switched user) — force re-hydration.
@@ -415,6 +446,34 @@ export const adminStore = {
   async setAssignments(userId: string, courseIds: string[]) {
     await assignmentsDb.setAssignmentsForUser(userId, courseIds);
     await refreshAssignments();
+  },
+
+  // ----- lesson assignments -----
+  async setLessonAssignments(userId: string, lessonIds: string[]) {
+    await lessonAssignmentsDb.setLessonAssignmentsForUser(userId, lessonIds);
+    await refreshLessonAssignments();
+  },
+
+  /**
+   * Saves both full-course assignments and per-lesson assignments in one call.
+   * Per-course rule: if a course is in `fullCourses`, all its single-lesson rows
+   * for that user are cleared (the full assignment supersedes them).
+   */
+  async saveUserAssignments(
+    userId: string,
+    payload: { fullCourses: string[]; lessons: string[] }
+  ) {
+    const fullSet = new Set(payload.fullCourses);
+    const lessonIds = payload.lessons.filter((lessonId) => {
+      const l = state.lessons.find((x) => x.id === lessonId);
+      if (!l) return false;
+      return !fullSet.has(l.courseId);
+    });
+    await Promise.all([
+      assignmentsDb.setAssignmentsForUser(userId, payload.fullCourses),
+      lessonAssignmentsDb.setLessonAssignmentsForUser(userId, lessonIds),
+    ]);
+    await Promise.all([refreshAssignments(), refreshLessonAssignments()]);
   },
 
   // Legacy auth helpers — unused now (AuthContext uses supabase.auth)
