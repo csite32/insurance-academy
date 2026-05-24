@@ -13,6 +13,11 @@ const CourseCard = ({ course }: { course: Course }) => {
           : "hover:-translate-y-1 hover:border-primary/40 hover:shadow-card-hover"
       }`}
     >
+      {course.accessTag === "selected" && (
+        <span className="absolute right-4 top-4 rounded-full bg-accent/15 px-3 py-1 text-[11px] font-semibold text-accent-foreground ring-1 ring-accent/30">
+          שיעורים נבחרים
+        </span>
+      )}
       {/* Icon */}
       <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-muted">
         <Icon className="h-7 w-7 text-foreground/80" strokeWidth={1.5} />
