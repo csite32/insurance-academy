@@ -14,6 +14,7 @@ import { buildCourseDetailFromStore } from "@/data/courseFromStore";
 import { useAdminStore, useAdminStoreHydration, useAdminHydrated } from "@/data/adminStore";
 import { useCourseProgress } from "@/hooks/useCourseProgress";
 import { useAuth } from "@/contexts/AuthContext";
+import { getCourseAccess, filterCourseByAccess } from "@/lib/access";
 
 const CoursePage = () => {
   const { id = "" } = useParams();
@@ -27,10 +28,16 @@ const CoursePage = () => {
   const resolvedCourse = buildCourseDetailFromStore(id);
   const notFound = hydrated && !resolvedCourse;
   const isAdmin = user?.role === "admin";
-  const hasAccess =
-    !!resolvedCourse &&
-    (isAdmin || (user?.assignedCourses ?? []).includes(resolvedCourse.id));
-  const course =
+  const access = resolvedCourse
+    ? getCourseAccess(
+        resolvedCourse.id,
+        user?.assignedCourses ?? [],
+        user?.assignedLessons ?? [],
+        isAdmin
+      )
+    : { kind: "none" as const };
+  const hasAccess = !!resolvedCourse && access.kind !== "none";
+  const baseCourse =
     resolvedCourse ?? {
       id: id || "missing",
       title: "",
@@ -40,6 +47,9 @@ const CoursePage = () => {
       assignedUserIds: [],
       active: false,
     };
+  const course = resolvedCourse
+    ? filterCourseByAccess(resolvedCourse, access)
+    : baseCourse;
 
   const flatLessons = useMemo(() => getFlatLessons(course), [course]);
   const total = flatLessons.length;
