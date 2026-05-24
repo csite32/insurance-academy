@@ -16,6 +16,7 @@ import Footer from "@/components/layout/Footer";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdminStore, useAdminStoreHydration, getIcon } from "@/data/adminStore";
 import type { CourseProgress, CourseStatus } from "@/hooks/useCourseProgress";
+import { getCourseAccess } from "@/lib/access";
 
 type CourseRow = {
   id: string;
@@ -28,6 +29,7 @@ type CourseRow = {
   status: CourseStatus;
   lastLessonId: string | null;
   startedAt: string | null;
+  accessKind: "full" | "partial";
 };
 
 const readProgress = (userId: string, courseId: string): CourseProgress | null => {
@@ -63,16 +65,33 @@ const Profile = () => {
 
   const rows: CourseRow[] = useMemo(() => {
     if (!user) return [];
+    const assigned = user.assignedCourses ?? [];
+    const assignedLessons = user.assignedLessons ?? [];
+    const isAdmin = user.role === "admin";
     return adminCourses
-      .filter((c) => user.assignedCourses.includes(c.id))
+      .filter((c) => c.status === "active")
       .map((c) => {
-        const totalLessons = adminLessons.filter((l) => l.courseId === c.id).length;
+        const access = getCourseAccess(c.id, assigned, assignedLessons, isAdmin);
+        if (access.kind === "none") return null;
+        const courseLessonIds = adminLessons
+          .filter((l) => l.courseId === c.id)
+          .map((l) => l.id);
+        const availableIds =
+          access.kind === "partial"
+            ? courseLessonIds.filter((id) => access.lessonIds.has(id))
+            : courseLessonIds;
+        const totalLessons = availableIds.length;
         const p = readProgress(user.id, c.id);
-        const completedLessons = p?.completedLessonIds.length ?? 0;
+        const completedLessons =
+          p?.completedLessonIds.filter((id) => availableIds.includes(id)).length ?? 0;
         const percent =
           totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
         const status: CourseStatus =
-          p?.status ?? (completedLessons === 0 ? "not_started" : "in_progress");
+          completedLessons === 0
+            ? "not_started"
+            : completedLessons >= totalLessons && totalLessons > 0
+              ? "completed"
+              : "in_progress";
         return {
           id: c.id,
           title: c.title,
@@ -84,8 +103,10 @@ const Profile = () => {
           status,
           lastLessonId: p?.lastLessonId ?? null,
           startedAt: p?.startedAt ?? null,
-        };
-      });
+          accessKind: access.kind,
+        } as CourseRow;
+      })
+      .filter((r): r is CourseRow => r !== null);
   }, [user, adminCourses, adminLessons]);
 
   if (!user) return null;
