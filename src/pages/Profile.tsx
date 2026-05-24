@@ -367,11 +367,18 @@ const Profile = () => {
                       <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted">
                         <Icon className="h-6 w-6 text-foreground/80" strokeWidth={1.6} />
                       </div>
-                      <span
-                        className={`rounded-full px-3 py-1 text-[11px] font-semibold ${statusClasses[row.status]}`}
-                      >
-                        {statusLabel[row.status]}
-                      </span>
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        {row.accessKind === "partial" && (
+                          <span className="rounded-full bg-primary/10 text-primary px-3 py-1 text-[11px] font-semibold">
+                            שיעורים נבחרים
+                          </span>
+                        )}
+                        <span
+                          className={`rounded-full px-3 py-1 text-[11px] font-semibold ${statusClasses[row.status]}`}
+                        >
+                          {statusLabel[row.status]}
+                        </span>
+                      </div>
                     </div>
                     <h3 className="mt-4 text-lg font-bold">{row.title}</h3>
                     <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
