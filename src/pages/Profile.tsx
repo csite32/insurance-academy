@@ -125,8 +125,15 @@ const Profile = () => {
 
   let continueLessonTitle = "";
   if (continueCourse) {
+    const access = getCourseAccess(
+      continueCourse.id,
+      user.assignedCourses ?? [],
+      user.assignedLessons ?? [],
+      user.role === "admin"
+    );
     const courseLessons = adminLessons
       .filter((l) => l.courseId === continueCourse.id)
+      .filter((l) => access.kind !== "partial" || access.lessonIds.has(l.id))
       .sort((a, b) => a.order - b.order);
     const lesson =
       courseLessons.find((l) => l.id === continueCourse.lastLessonId) ??
