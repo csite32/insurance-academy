@@ -7,6 +7,8 @@ export type Course = {
   lessons: number;
   icon: any;
   locked?: boolean;
+  /** Tag shown on the card: 'full' = full course, 'selected' = only selected lessons. */
+  accessTag?: "full" | "selected";
 };
 
 export const courses: Course[] = [
