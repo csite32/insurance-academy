@@ -2,6 +2,10 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { listAssignmentsForUser } from "@/lib/db/assignmentsDb";
+import {
+  listLessonAssignmentsForUser,
+  subscribeLessonAssignments,
+} from "@/lib/db/lessonAssignmentsDb";
 import { uploadAvatar as uploadAvatarDb, removeAvatar as removeAvatarDb } from "@/lib/db/usersDb";
 
 export type Role = "user" | "admin";
@@ -12,6 +16,7 @@ export type AuthUser = {
   email: string;
   role: Role;
   assignedCourses: string[];
+  assignedLessons: { courseId: string; lessonId: string }[];
   completedLessons: string[];
   lastViewedLesson: string | null;
   progress: number;
@@ -32,7 +37,7 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 async function hydrateUser(userId: string): Promise<AuthUser | null> {
-  const [{ data: profile, error: pErr }, { data: roles, error: rErr }, assigned] =
+  const [{ data: profile, error: pErr }, { data: roles, error: rErr }, assigned, lessonAssigned] =
     await Promise.all([
       supabase
         .from("profiles")
@@ -41,6 +46,9 @@ async function hydrateUser(userId: string): Promise<AuthUser | null> {
         .maybeSingle(),
       supabase.from("user_roles").select("role").eq("user_id", userId),
       listAssignmentsForUser(userId).catch(() => [] as string[]),
+      listLessonAssignmentsForUser(userId).catch(
+        () => [] as { courseId: string; lessonId: string }[]
+      ),
     ]);
   if (pErr) {
     console.error("[auth] profile fetch error", pErr);
@@ -56,6 +64,10 @@ async function hydrateUser(userId: string): Promise<AuthUser | null> {
     email: profile.email ?? "",
     role: isAdmin ? "admin" : "user",
     assignedCourses: assigned,
+    assignedLessons: (lessonAssigned ?? []).map((la) => ({
+      courseId: la.courseId,
+      lessonId: la.lessonId,
+    })),
     completedLessons: [],
     lastViewedLesson: null,
     progress: 0,
@@ -112,6 +124,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       sub.subscription.unsubscribe();
     };
   }, []);
+
+  // Refresh assignedLessons in realtime so per-lesson access updates without re-login.
+  useEffect(() => {
+    if (!user?.id) return;
+    const uid = user.id;
+    const unsub = subscribeLessonAssignments(() => {
+      listLessonAssignmentsForUser(uid)
+        .then((rows) => {
+          setUser((prev) =>
+            prev && prev.id === uid
+              ? {
+                  ...prev,
+                  assignedLessons: rows.map((la) => ({
+                    courseId: la.courseId,
+                    lessonId: la.lessonId,
+                  })),
+                }
+              : prev
+          );
+        })
+        .catch(() => {});
+    });
+    return unsub;
+  }, [user?.id]);
 
   const login = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({
