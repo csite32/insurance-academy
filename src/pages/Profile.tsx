@@ -17,6 +17,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAdminStore, useAdminStoreHydration, getIcon } from "@/data/adminStore";
 import type { CourseProgress, CourseStatus } from "@/hooks/useCourseProgress";
 import { getCourseAccess } from "@/lib/access";
+import { calculateCourseProgressMetrics, getCourseProgressStatus } from "@/lib/progressMetrics";
 
 type CourseRow = {
   id: string;
@@ -80,18 +81,10 @@ const Profile = () => {
           access.kind === "partial"
             ? courseLessonIds.filter((id) => access.lessonIds.has(id))
             : courseLessonIds;
-        const totalLessons = availableIds.length;
         const p = readProgress(user.id, c.id);
-        const completedLessons =
-          p?.completedLessonIds.filter((id) => availableIds.includes(id)).length ?? 0;
-        const percent =
-          totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
-        const status: CourseStatus =
-          completedLessons === 0
-            ? "not_started"
-            : completedLessons >= totalLessons && totalLessons > 0
-              ? "completed"
-              : "in_progress";
+        const { totalLessons, completedLessons, progressPercent } =
+          calculateCourseProgressMetrics(availableIds, p?.completedLessonIds ?? []);
+        const status: CourseStatus = getCourseProgressStatus(completedLessons, totalLessons);
         return {
           id: c.id,
           title: c.title,
@@ -99,7 +92,7 @@ const Profile = () => {
           icon: getIcon(c.iconKey),
           totalLessons,
           completedLessons,
-          percent,
+          percent: progressPercent,
           status,
           lastLessonId: p?.lastLessonId ?? null,
           startedAt: p?.startedAt ?? null,
