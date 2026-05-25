@@ -19,6 +19,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useRef } from "react";
+import { Upload, Loader2 } from "lucide-react";
 
 type FormState = {
   title: string;
@@ -58,6 +61,17 @@ const parseAttachmentRaw = (raw: string): AttachmentEntry => {
 
 const serializeAttachment = (a: AttachmentEntry): string =>
   JSON.stringify({ name: a.name.trim(), url: a.url.trim(), type: a.type });
+
+const inferTypeFromName = (name: string): AttachmentType => {
+  const ext = name.split(".").pop()?.toLowerCase() ?? "";
+  if (ext === "pdf") return "pdf";
+  if (["doc", "docx", "txt", "rtf"].includes(ext)) return "doc";
+  if (["ppt", "pptx", "key"].includes(ext)) return "ppt";
+  return "link";
+};
+
+const sanitizeFileName = (name: string) =>
+  name.replace(/[^\w.\-]+/g, "_").slice(0, 120);
 
 const AdminLessons = () => {
   const courses = useAdminStore((s) => s.courses);
