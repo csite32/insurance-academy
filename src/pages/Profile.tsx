@@ -63,6 +63,7 @@ const Profile = () => {
   useEffect(() => {
     if (!user) {
       setCompletedByCourse({});
+      setLastViewedByCourse({});
       return;
     }
 
