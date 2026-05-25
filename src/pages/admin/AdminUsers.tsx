@@ -66,8 +66,8 @@ const AdminUsers = () => {
     if (!form.fullName.trim()) e.fullName = "שדה חובה";
     if (!form.email.trim() || !form.email.includes("@")) e.email = "אימייל לא תקין";
     // Password is only required when creating a new user
-    if (!editing && (!form.password || form.password.length < 4)) {
-      e.password = "סיסמה לפחות 4 תווים";
+    if (!editing && (!form.password || form.password.length < 6)) {
+      e.password = "סיסמה לפחות 6 תווים";
     }
     setErrors(e);
     return Object.keys(e).length === 0;
