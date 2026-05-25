@@ -17,7 +17,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAdminStore, useAdminStoreHydration, getIcon } from "@/data/adminStore";
 import type { CourseStatus } from "@/hooks/useCourseProgress";
 import { getCourseAccess } from "@/lib/access";
-import { getLastViewed, listProgressForUser } from "@/lib/db/progressDb";
+import { listLastViewedForUser, listProgressForUser } from "@/lib/db/progressDb";
 import { calculateUnifiedCourseProgress } from "@/lib/progressMetrics";
 
 type CourseRow = {
@@ -67,8 +67,8 @@ const Profile = () => {
     }
 
     let cancelled = false;
-    Promise.all([listProgressForUser(user.id), getLastViewed(user.id)])
-      .then(([rows, lastViewed]) => {
+    Promise.all([listProgressForUser(user.id), listLastViewedForUser(user.id)])
+      .then(([rows, lastViewedRows]) => {
         if (cancelled) return;
         const grouped = rows.reduce<Record<string, string[]>>((acc, row) => {
           acc[row.courseId] = [...(acc[row.courseId] ?? []), row.lessonId];
@@ -76,7 +76,10 @@ const Profile = () => {
         }, {});
         setCompletedByCourse(grouped);
         setLastViewedByCourse(
-          lastViewed ? { [lastViewed.courseId]: lastViewed.lessonId } : {}
+          lastViewedRows.reduce<Record<string, string>>((acc, row) => {
+            acc[row.courseId] = row.lessonId;
+            return acc;
+          }, {})
         );
       })
       .catch(() => {
