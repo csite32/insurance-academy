@@ -129,7 +129,7 @@ const UserProgressDialog = ({ user, onOpenChange }: Props) => {
     <Dialog open={!!user} onOpenChange={onOpenChange}>
       <DialogContent dir="rtl" className="text-right max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="text-right">התקדמות - {user.fullName}</DialogTitle>
+          <DialogTitle className="text-center">התקדמות - {user.fullName}</DialogTitle>
         </DialogHeader>
 
         {loading ? (
