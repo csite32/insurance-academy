@@ -1,14 +1,34 @@
-import { FileText } from "lucide-react";
+import { FileText, FileType2, Presentation, Link as LinkIcon } from "lucide-react";
 import { adminStore, type AdminLesson } from "./adminStore";
 import type { CourseDetail, Lesson, Chapter, Attachment } from "./courseDetail";
 
+const iconForType = (type: string) => {
+  if (type === "pdf") return FileText;
+  if (type === "doc") return FileType2;
+  if (type === "ppt") return Presentation;
+  return LinkIcon;
+};
+
+const parseAttachment = (raw: string, lessonId: string, i: number): Attachment => {
+  try {
+    if (raw.trim().startsWith("{")) {
+      const o = JSON.parse(raw) as { name?: string; url?: string; type?: string };
+      const type = o.type ?? "link";
+      return {
+        id: `${lessonId}-att-${i}`,
+        name: o.name ?? "קובץ",
+        url: o.url ?? "#",
+        icon: iconForType(type),
+      };
+    }
+  } catch { /* fall through */ }
+  return { id: `${lessonId}-att-${i}`, name: raw, url: "#", icon: FileText };
+};
+
 const toLesson = (l: AdminLesson): Lesson => {
-  const attachments: Attachment[] = (l.attachments ?? []).map((name, i) => ({
-    id: `${l.id}-att-${i}`,
-    name,
-    url: "#",
-    icon: FileText,
-  }));
+  const attachments: Attachment[] = (l.attachments ?? []).map((raw, i) =>
+    parseAttachment(raw, l.id, i)
+  );
   return {
     id: l.id,
     order: l.order,
