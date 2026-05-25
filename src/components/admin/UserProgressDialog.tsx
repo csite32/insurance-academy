@@ -5,10 +5,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useAdminStore, type AdminUser } from "@/data/adminStore";
 import { getCourseAccess } from "@/lib/access";
+import { calculateCourseProgressMetrics } from "@/lib/progressMetrics";
 
 type Props = {
   user: AdminUser | null;
@@ -108,13 +108,12 @@ const UserProgressDialog = ({ user, onOpenChange }: Props) => {
           : access.kind === "partial"
           ? courseLessons.filter((l) => access.lessonIds.has(l.id))
           : [];
-      const availableIds = new Set(available.map((l) => l.id));
-      const completed = progress.filter(
-        (p) => p.course_id === cid && availableIds.has(p.lesson_id)
-      );
-      const total = available.length;
-      const done = completed.length;
-      const percent = total === 0 ? 0 : Math.round((done / total) * 100);
+      const availableIds = available.map((l) => l.id);
+      const completedIds = progress
+        .filter((p) => p.course_id === cid)
+        .map((p) => p.lesson_id);
+      const { totalLessons: total, completedLessons: done, progressPercent: percent } =
+        calculateCourseProgressMetrics(availableIds, completedIds);
       const lv = lastViewed.find((x) => x.course_id === cid) ?? null;
       const lastIdx = lv
         ? available.findIndex((l) => l.id === lv.lesson_id)
@@ -181,7 +180,12 @@ const UserProgressDialog = ({ user, onOpenChange }: Props) => {
                     </span>
                   </div>
                 </div>
-                <Progress value={r.percent} className="h-2" />
+                <div className="h-2 overflow-hidden rounded-full bg-secondary">
+                  <div
+                    className="h-full bg-primary transition-all"
+                    style={{ width: `${r.percent}%` }}
+                  />
+                </div>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <span>
                     {r.hasLast
