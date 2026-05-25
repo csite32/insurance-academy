@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   UserCircle2,
@@ -17,6 +17,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAdminStore, useAdminStoreHydration, getIcon } from "@/data/adminStore";
 import type { CourseProgress, CourseStatus } from "@/hooks/useCourseProgress";
 import { getCourseAccess } from "@/lib/access";
+import { listProgressForUser } from "@/lib/db/progressDb";
 import { calculateCourseProgressMetrics, getCourseProgressStatus } from "@/lib/progressMetrics";
 
 type CourseRow = {
@@ -60,9 +61,35 @@ const Profile = () => {
   const adminCourses = useAdminStore((s) => s.courses);
   const adminLessons = useAdminStore((s) => s.lessons);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [completedByCourse, setCompletedByCourse] = useState<Record<string, string[]>>({});
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    if (!user) {
+      setCompletedByCourse({});
+      return;
+    }
+
+    let cancelled = false;
+    listProgressForUser(user.id)
+      .then((rows) => {
+        if (cancelled) return;
+        const grouped = rows.reduce<Record<string, string[]>>((acc, row) => {
+          acc[row.courseId] = [...(acc[row.courseId] ?? []), row.lessonId];
+          return acc;
+        }, {});
+        setCompletedByCourse(grouped);
+      })
+      .catch(() => {
+        if (!cancelled) setCompletedByCourse({});
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   const rows: CourseRow[] = useMemo(() => {
     if (!user) return [];
@@ -83,7 +110,10 @@ const Profile = () => {
             : courseLessonIds;
         const p = readProgress(user.id, c.id);
         const { totalLessons, completedLessons, progressPercent } =
-          calculateCourseProgressMetrics(availableIds, p?.completedLessonIds ?? []);
+          calculateCourseProgressMetrics(
+            availableIds,
+            completedByCourse[c.id] ?? p?.completedLessonIds ?? []
+          );
         const status: CourseStatus = getCourseProgressStatus(completedLessons, totalLessons);
         return {
           id: c.id,
@@ -100,7 +130,7 @@ const Profile = () => {
         } as CourseRow;
       })
       .filter((r): r is CourseRow => r !== null);
-  }, [user, adminCourses, adminLessons]);
+  }, [user, adminCourses, adminLessons, completedByCourse]);
 
   if (!user) return null;
 
