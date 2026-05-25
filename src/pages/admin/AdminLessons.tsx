@@ -95,6 +95,36 @@ const AdminLessons = () => {
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
   const [toDelete, setToDelete] = useState<AdminLesson | null>(null);
   const { toast } = useToast();
+  const [uploadingIdx, setUploadingIdx] = useState<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const pendingUploadIdx = useRef<number | null>(null);
+
+  const uploadFileForRow = async (idx: number, file: File) => {
+    setUploadingIdx(idx);
+    try {
+      const safe = sanitizeFileName(file.name);
+      const path = `lessons/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safe}`;
+      const { error: upErr } = await supabase.storage
+        .from("lesson-attachments")
+        .upload(path, file, { cacheControl: "3600", upsert: false });
+      if (upErr) throw upErr;
+      const { data } = supabase.storage.from("lesson-attachments").getPublicUrl(path);
+      const next = [...form.attachments];
+      const prev = next[idx] ?? { name: "", url: "", type: "link" as AttachmentType };
+      next[idx] = {
+        name: prev.name?.trim() ? prev.name : file.name,
+        url: data.publicUrl,
+        type: inferTypeFromName(file.name),
+      };
+      setForm({ ...form, attachments: next });
+      toast({ title: "הקובץ הועלה" });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "שגיאה בהעלאת קובץ";
+      toast({ title: "העלאה נכשלה", description: msg, variant: "destructive" });
+    } finally {
+      setUploadingIdx(null);
+    }
+  };
 
   const courseChapters = useMemo(
     () => chapters.filter((c) => c.courseId === filterCourseId).sort((a, b) => a.order - b.order),
@@ -414,24 +444,60 @@ const AdminLessons = () => {
             <div className="space-y-2 rounded-xl border border-border p-3">
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-semibold">קבצים נלווים</Label>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() =>
-                    setForm({
-                      ...form,
-                      attachments: [
-                        ...form.attachments,
-                        { name: "", url: "", type: "pdf" },
-                      ],
-                    })
-                  }
-                >
-                  <Plus className="h-4 w-4 ml-1" />
-                  הוספת קובץ
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      pendingUploadIdx.current = form.attachments.length;
+                      setForm({
+                        ...form,
+                        attachments: [
+                          ...form.attachments,
+                          { name: "", url: "", type: "pdf" },
+                        ],
+                      });
+                      // open picker on next tick
+                      setTimeout(() => fileInputRef.current?.click(), 0);
+                    }}
+                  >
+                    <Upload className="h-4 w-4 ml-1" />
+                    העלאת קובץ
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      setForm({
+                        ...form,
+                        attachments: [
+                          ...form.attachments,
+                          { name: "", url: "", type: "link" },
+                        ],
+                      })
+                    }
+                  >
+                    <Plus className="h-4 w-4 ml-1" />
+                    הוספת קישור
+                  </Button>
+                </div>
               </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.rtf,.key,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  const idx = pendingUploadIdx.current;
+                  pendingUploadIdx.current = null;
+                  if (!file || idx === null) return;
+                  void uploadFileForRow(idx, file);
+                }}
+              />
               {form.attachments.length === 0 && (
                 <p className="text-xs text-muted-foreground">
                   לא נוספו קבצים. ניתן להוסיף PDF, מסמך, מצגת או קישור חיצוני.
@@ -451,15 +517,35 @@ const AdminLessons = () => {
                       setForm({ ...form, attachments: next });
                     }}
                   />
-                  <Input
-                    value={a.url}
-                    placeholder="https://..."
-                    onChange={(e) => {
-                      const next = [...form.attachments];
-                      next[idx] = { ...a, url: e.target.value };
-                      setForm({ ...form, attachments: next });
-                    }}
-                  />
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      value={a.url}
+                      placeholder="כתובת קובץ או קישור"
+                      onChange={(e) => {
+                        const next = [...form.attachments];
+                        next[idx] = { ...a, url: e.target.value };
+                        setForm({ ...form, attachments: next });
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={uploadingIdx === idx}
+                      onClick={() => {
+                        pendingUploadIdx.current = idx;
+                        fileInputRef.current?.click();
+                      }}
+                      aria-label="העלאת קובץ"
+                      className="shrink-0"
+                    >
+                      {uploadingIdx === idx ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Upload className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
                   <select
                     value={a.type}
                     onChange={(e) => {
