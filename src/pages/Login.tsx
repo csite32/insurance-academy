@@ -93,7 +93,7 @@ const Login = () => {
 
         <div className="mt-6 text-center text-xs text-muted-foreground space-y-1">
           <p>משתמש דמו: demo@academy.co.il / 123456</p>
-          <p>מנהל: admin@academy.co.il / 123456</p>
+          <p>מנהל: </p>
         </div>
       </div>
     </div>
