@@ -8,7 +8,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAdminStore, type AdminUser } from "@/data/adminStore";
 import { getCourseAccess } from "@/lib/access";
-import { calculateCourseProgressMetrics } from "@/lib/progressMetrics";
+import { calculateUnifiedCourseProgress } from "@/lib/progressMetrics";
 
 type Props = {
   user: AdminUser | null;
@@ -108,35 +108,25 @@ const UserProgressDialog = ({ user, onOpenChange }: Props) => {
           : access.kind === "partial"
           ? courseLessons.filter((l) => access.lessonIds.has(l.id))
           : [];
-      const availableIds = available.map((l) => l.id);
       const completedIds = progress
         .filter((p) => p.course_id === cid)
         .map((p) => p.lesson_id);
-      const { totalLessons: total, completedLessons: done, progressPercent: percent } =
-        calculateCourseProgressMetrics(availableIds, completedIds);
       const lv = lastViewed.find((x) => x.course_id === cid) ?? null;
-      const lastIdx = lv
-        ? available.findIndex((l) => l.id === lv.lesson_id)
-        : -1;
-      const hasLast = lastIdx >= 0;
-      const lastLesson = hasLast ? available[lastIdx].title : null;
-      const lastPosition = hasLast ? lastIdx + 1 : 0;
-      const status: "not_started" | "in_progress" | "completed" =
-        total > 0 && done >= total
-          ? "completed"
-          : done > 0 || hasLast
-          ? "in_progress"
-          : "not_started";
+      const metrics = calculateUnifiedCourseProgress(
+        available.map((lesson) => ({ id: lesson.id, title: lesson.title })),
+        completedIds,
+        lv?.lesson_id ?? null
+      );
       return {
         course,
         access,
-        total,
-        done,
-        percent,
-        lastLesson,
-        lastPosition,
-        hasLast,
-        status,
+        total: metrics.totalCount,
+        done: metrics.completedCount,
+        percent: metrics.progressPercent,
+        lastLesson: metrics.lastViewedTitle,
+        lastPosition: metrics.lastViewedIndex,
+        hasLast: metrics.lastViewedIndex > 0,
+        status: metrics.status,
       };
     })
     .filter((r): r is NonNullable<typeof r> => r !== null);
