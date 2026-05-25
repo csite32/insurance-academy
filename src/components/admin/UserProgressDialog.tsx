@@ -31,6 +31,7 @@ const statusClass = (s: "not_started" | "in_progress" | "completed") =>
 const UserProgressDialog = ({ user, onOpenChange }: Props) => {
   const courses = useAdminStore((s) => s.courses);
   const lessons = useAdminStore((s) => s.lessons);
+  const chapters = useAdminStore((s) => s.chapters);
   const assignments = useAdminStore((s) => s.assignments);
   const lessonAssignments = useAdminStore((s) => s.lessonAssignments);
 
@@ -89,7 +90,18 @@ const UserProgressDialog = ({ user, onOpenChange }: Props) => {
         userAssignedLessons,
         false
       );
-      const courseLessons = lessons.filter((l) => l.courseId === cid);
+      const courseChapters = chapters
+        .filter((c) => c.courseId === cid)
+        .sort((a, b) => a.order - b.order);
+      const chapterOrder = new Map(courseChapters.map((c, i) => [c.id, i]));
+      const courseLessons = lessons
+        .filter((l) => l.courseId === cid)
+        .sort((a, b) => {
+          const ca = chapterOrder.get(a.chapterId) ?? 0;
+          const cb = chapterOrder.get(b.chapterId) ?? 0;
+          if (ca !== cb) return ca - cb;
+          return a.order - b.order;
+        });
       const available =
         access.kind === "full"
           ? courseLessons
@@ -104,13 +116,16 @@ const UserProgressDialog = ({ user, onOpenChange }: Props) => {
       const done = completed.length;
       const percent = total === 0 ? 0 : Math.round((done / total) * 100);
       const lv = lastViewed.find((x) => x.course_id === cid) ?? null;
-      const lastLesson = lv
-        ? lessons.find((l) => l.id === lv.lesson_id)?.title ?? null
-        : null;
+      const lastIdx = lv
+        ? available.findIndex((l) => l.id === lv.lesson_id)
+        : -1;
+      const hasLast = lastIdx >= 0;
+      const lastLesson = hasLast ? available[lastIdx].title : null;
+      const lastPosition = hasLast ? lastIdx + 1 : 0;
       const status: "not_started" | "in_progress" | "completed" =
         total > 0 && done >= total
           ? "completed"
-          : done > 0 || lv
+          : done > 0 || hasLast
           ? "in_progress"
           : "not_started";
       return {
@@ -120,6 +135,8 @@ const UserProgressDialog = ({ user, onOpenChange }: Props) => {
         done,
         percent,
         lastLesson,
+        lastPosition,
+        hasLast,
         status,
       };
     })
@@ -167,7 +184,9 @@ const UserProgressDialog = ({ user, onOpenChange }: Props) => {
                 <Progress value={r.percent} className="h-2" />
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <span>
-                    {r.done} מתוך {r.total} שיעורים ({r.percent}%)
+                    {r.hasLast
+                      ? `שיעור ${r.lastPosition} מתוך ${r.total} (${r.percent}%)`
+                      : `לא התחיל · 0 מתוך ${r.total} (${r.percent}%)`}
                   </span>
                   <span>
                     שיעור אחרון:{" "}
