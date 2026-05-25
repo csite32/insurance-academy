@@ -15,10 +15,10 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdminStore, useAdminStoreHydration, getIcon } from "@/data/adminStore";
-import type { CourseProgress, CourseStatus } from "@/hooks/useCourseProgress";
+import type { CourseStatus } from "@/hooks/useCourseProgress";
 import { getCourseAccess } from "@/lib/access";
-import { listProgressForUser } from "@/lib/db/progressDb";
-import { calculateCourseProgressMetrics, getCourseProgressStatus } from "@/lib/progressMetrics";
+import { getLastViewed, listProgressForUser } from "@/lib/db/progressDb";
+import { calculateUnifiedCourseProgress } from "@/lib/progressMetrics";
 
 type CourseRow = {
   id: string;
@@ -30,17 +30,9 @@ type CourseRow = {
   percent: number;
   status: CourseStatus;
   lastLessonId: string | null;
+  lastLessonTitle: string | null;
   startedAt: string | null;
   accessKind: "full" | "partial";
-};
-
-const readProgress = (userId: string, courseId: string): CourseProgress | null => {
-  try {
-    const raw = localStorage.getItem(`progress:${userId}:${courseId}`);
-    return raw ? (JSON.parse(raw) as CourseProgress) : null;
-  } catch {
-    return null;
-  }
 };
 
 const statusLabel: Record<CourseStatus, string> = {
@@ -60,8 +52,10 @@ const Profile = () => {
   const { user, uploadAvatar, removeAvatar } = useAuth();
   const adminCourses = useAdminStore((s) => s.courses);
   const adminLessons = useAdminStore((s) => s.lessons);
+  const adminChapters = useAdminStore((s) => s.chapters);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [completedByCourse, setCompletedByCourse] = useState<Record<string, string[]>>({});
+  const [lastViewedByCourse, setLastViewedByCourse] = useState<Record<string, string>>({});
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -73,17 +67,23 @@ const Profile = () => {
     }
 
     let cancelled = false;
-    listProgressForUser(user.id)
-      .then((rows) => {
+    Promise.all([listProgressForUser(user.id), getLastViewed(user.id)])
+      .then(([rows, lastViewed]) => {
         if (cancelled) return;
         const grouped = rows.reduce<Record<string, string[]>>((acc, row) => {
           acc[row.courseId] = [...(acc[row.courseId] ?? []), row.lessonId];
           return acc;
         }, {});
         setCompletedByCourse(grouped);
+        setLastViewedByCourse(
+          lastViewed ? { [lastViewed.courseId]: lastViewed.lessonId } : {}
+        );
       })
       .catch(() => {
-        if (!cancelled) setCompletedByCourse({});
+        if (!cancelled) {
+          setCompletedByCourse({});
+          setLastViewedByCourse({});
+        }
       });
 
     return () => {
@@ -101,36 +101,45 @@ const Profile = () => {
       .map((c) => {
         const access = getCourseAccess(c.id, assigned, assignedLessons, isAdmin);
         if (access.kind === "none") return null;
-        const courseLessonIds = adminLessons
+        const courseChapterIds = adminChapters
+          .filter((chapter) => chapter.courseId === c.id)
+          .sort((a, b) => a.order - b.order)
+          .map((chapter) => chapter.id);
+        const chapterOrder = new Map(courseChapterIds.map((chapterId, index) => [chapterId, index]));
+        const courseLessons = adminLessons
           .filter((l) => l.courseId === c.id)
-          .map((l) => l.id);
-        const availableIds =
+          .sort((a, b) => {
+            const chapterA = chapterOrder.get(a.chapterId) ?? 0;
+            const chapterB = chapterOrder.get(b.chapterId) ?? 0;
+            if (chapterA !== chapterB) return chapterA - chapterB;
+            return a.order - b.order;
+          });
+        const availableLessons =
           access.kind === "partial"
-            ? courseLessonIds.filter((id) => access.lessonIds.has(id))
-            : courseLessonIds;
-        const p = readProgress(user.id, c.id);
-        const { totalLessons, completedLessons, progressPercent } =
-          calculateCourseProgressMetrics(
-            availableIds,
-            completedByCourse[c.id] ?? p?.completedLessonIds ?? []
-          );
-        const status: CourseStatus = getCourseProgressStatus(completedLessons, totalLessons);
+            ? courseLessons.filter((lesson) => access.lessonIds.has(lesson.id))
+            : courseLessons;
+        const metrics = calculateUnifiedCourseProgress(
+          availableLessons.map((lesson) => ({ id: lesson.id, title: lesson.title })),
+          completedByCourse[c.id] ?? [],
+          lastViewedByCourse[c.id] ?? null
+        );
         return {
           id: c.id,
           title: c.title,
           description: c.description,
           icon: getIcon(c.iconKey),
-          totalLessons,
-          completedLessons,
-          percent: progressPercent,
-          status,
-          lastLessonId: p?.lastLessonId ?? null,
-          startedAt: p?.startedAt ?? null,
+          totalLessons: metrics.totalCount,
+          completedLessons: metrics.completedCount,
+          percent: metrics.progressPercent,
+          status: metrics.status,
+          lastLessonId: lastViewedByCourse[c.id] ?? null,
+          lastLessonTitle: metrics.lastViewedTitle,
+          startedAt: lastViewedByCourse[c.id] || metrics.completedCount > 0 ? "started" : null,
           accessKind: access.kind,
         } as CourseRow;
       })
       .filter((r): r is CourseRow => r !== null);
-  }, [user, adminCourses, adminLessons, completedByCourse]);
+  }, [user, adminCourses, adminLessons, adminChapters, completedByCourse, lastViewedByCourse]);
 
   if (!user) return null;
 
@@ -154,10 +163,20 @@ const Profile = () => {
       user.assignedLessons ?? [],
       user.role === "admin"
     );
+    const courseChapterIds = adminChapters
+      .filter((chapter) => chapter.courseId === continueCourse.id)
+      .sort((a, b) => a.order - b.order)
+      .map((chapter) => chapter.id);
+    const chapterOrder = new Map(courseChapterIds.map((chapterId, index) => [chapterId, index]));
     const courseLessons = adminLessons
       .filter((l) => l.courseId === continueCourse.id)
       .filter((l) => access.kind !== "partial" || access.lessonIds.has(l.id))
-      .sort((a, b) => a.order - b.order);
+      .sort((a, b) => {
+        const chapterA = chapterOrder.get(a.chapterId) ?? 0;
+        const chapterB = chapterOrder.get(b.chapterId) ?? 0;
+        if (chapterA !== chapterB) return chapterA - chapterB;
+        return a.order - b.order;
+      });
     const lesson =
       courseLessons.find((l) => l.id === continueCourse.lastLessonId) ??
       courseLessons[0];
