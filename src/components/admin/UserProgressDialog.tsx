@@ -5,7 +5,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useAdminStore, type AdminUser } from "@/data/adminStore";
 import { getCourseAccess } from "@/lib/access";
@@ -181,7 +180,12 @@ const UserProgressDialog = ({ user, onOpenChange }: Props) => {
                     </span>
                   </div>
                 </div>
-                <Progress value={r.percent} className="h-2" />
+                <div className="h-2 overflow-hidden rounded-full bg-secondary">
+                  <div
+                    className="h-full bg-primary transition-all"
+                    style={{ width: `${r.percent}%` }}
+                  />
+                </div>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <span>
                     {r.hasLast
