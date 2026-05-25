@@ -1,9 +1,15 @@
-import { Check, ChevronRight, ChevronLeft, Lock } from "lucide-react";
+import { Check, ChevronRight, ChevronLeft, Lock, Paperclip } from "lucide-react";
 import type { Lesson } from "@/data/courseDetail";
 import { Button } from "@/components/ui/button";
 import VideoPlayer from "./VideoPlayer";
 import AttachmentsList from "./AttachmentsList";
 import Quiz from "./Quiz";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 type Props = {
   lesson: Lesson;
@@ -39,7 +45,25 @@ const LessonContent = ({
     </section>
 
     {lesson.attachments && lesson.attachments.length > 0 && (
-      <AttachmentsList items={lesson.attachments} />
+      <Accordion type="single" collapsible className="w-full">
+        <AccordionItem
+          value="attachments"
+          className="rounded-2xl border border-border bg-card shadow-card"
+        >
+          <AccordionTrigger className="px-5 py-4 hover:no-underline">
+            <span className="flex items-center gap-2 text-base font-bold">
+              <Paperclip className="h-4 w-4" />
+              קבצים נלווים
+              <span className="text-xs font-normal text-muted-foreground">
+                ({lesson.attachments.length})
+              </span>
+            </span>
+          </AccordionTrigger>
+          <AccordionContent className="px-5 pb-5">
+            <AttachmentsList items={lesson.attachments} />
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
     )}
 
     {lesson.quiz && <Quiz quiz={lesson.quiz} lessonCompleted={isCompleted} />}

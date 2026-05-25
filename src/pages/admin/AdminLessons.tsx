@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Plus, Pencil, Trash2, ArrowUp, ArrowDown } from "lucide-react";
+import { Plus, Pencil, Trash2, ArrowUp, ArrowDown, X } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import {
@@ -29,7 +29,35 @@ type FormState = {
   chapterId: string;
   hasQuiz: boolean;
   isLocked: boolean;
+  attachments: AttachmentEntry[];
 };
+
+type AttachmentType = "pdf" | "doc" | "ppt" | "link";
+type AttachmentEntry = { name: string; url: string; type: AttachmentType };
+
+const ATTACHMENT_TYPE_LABEL: Record<AttachmentType, string> = {
+  pdf: "PDF",
+  doc: "מסמך",
+  ppt: "מצגת",
+  link: "קישור חיצוני",
+};
+
+const parseAttachmentRaw = (raw: string): AttachmentEntry => {
+  try {
+    if (raw.trim().startsWith("{")) {
+      const o = JSON.parse(raw) as Partial<AttachmentEntry>;
+      return {
+        name: o.name ?? "",
+        url: o.url ?? "",
+        type: (o.type as AttachmentType) ?? "link",
+      };
+    }
+  } catch { /* ignore */ }
+  return { name: raw, url: "", type: "link" };
+};
+
+const serializeAttachment = (a: AttachmentEntry): string =>
+  JSON.stringify({ name: a.name.trim(), url: a.url.trim(), type: a.type });
 
 const AdminLessons = () => {
   const courses = useAdminStore((s) => s.courses);
@@ -48,6 +76,7 @@ const AdminLessons = () => {
     chapterId: "",
     hasQuiz: false,
     isLocked: false,
+    attachments: [],
   });
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
   const [toDelete, setToDelete] = useState<AdminLesson | null>(null);
@@ -85,6 +114,7 @@ const AdminLessons = () => {
       chapterId: courseChapters[0]?.id ?? "",
       hasQuiz: false,
       isLocked: false,
+      attachments: [],
     });
     setErrors({});
     setCreating(true);
@@ -100,6 +130,7 @@ const AdminLessons = () => {
       chapterId: l.chapterId,
       hasQuiz: l.hasQuiz,
       isLocked: l.isLocked,
+      attachments: (l.attachments ?? []).map(parseAttachmentRaw),
     });
     setErrors({});
     setEditing(l);
@@ -116,6 +147,9 @@ const AdminLessons = () => {
 
   const submit = () => {
     if (!validate()) return;
+    const attachments = form.attachments
+      .filter((a) => a.name.trim() && a.url.trim())
+      .map(serializeAttachment);
     if (editing) {
       adminStore.updateLesson(editing.id, {
         title: form.title,
@@ -126,6 +160,7 @@ const AdminLessons = () => {
         chapterId: form.chapterId,
         hasQuiz: form.hasQuiz,
         isLocked: form.isLocked,
+        attachments,
       });
       toast({ title: "השיעור עודכן" });
       setEditing(null);
@@ -135,7 +170,7 @@ const AdminLessons = () => {
         description: form.description,
         videoUrl: form.videoUrl,
         content: form.content,
-        attachments: [],
+        attachments,
         courseId: form.courseId,
         chapterId: form.chapterId,
         hasQuiz: form.hasQuiz,
@@ -272,7 +307,7 @@ const AdminLessons = () => {
           <DialogHeader>
             <DialogTitle>{editing ? "עריכת שיעור" : "שיעור חדש"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-4 max-h-[70vh] overflow-y-auto pl-1">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>קורס</Label>
@@ -360,6 +395,85 @@ const AdminLessons = () => {
                 />
                 שיעור נעול
               </label>
+            </div>
+
+            <div className="space-y-2 rounded-xl border border-border p-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-semibold">קבצים נלווים</Label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    setForm({
+                      ...form,
+                      attachments: [
+                        ...form.attachments,
+                        { name: "", url: "", type: "pdf" },
+                      ],
+                    })
+                  }
+                >
+                  <Plus className="h-4 w-4 ml-1" />
+                  הוספת קובץ
+                </Button>
+              </div>
+              {form.attachments.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  לא נוספו קבצים. ניתן להוסיף PDF, מסמך, מצגת או קישור חיצוני.
+                </p>
+              )}
+              {form.attachments.map((a, idx) => (
+                <div
+                  key={idx}
+                  className="grid grid-cols-1 gap-2 rounded-lg border border-border/70 bg-muted/30 p-2 md:grid-cols-[1fr_1.4fr_140px_auto] md:items-center"
+                >
+                  <Input
+                    value={a.name}
+                    placeholder="שם הקובץ"
+                    onChange={(e) => {
+                      const next = [...form.attachments];
+                      next[idx] = { ...a, name: e.target.value };
+                      setForm({ ...form, attachments: next });
+                    }}
+                  />
+                  <Input
+                    value={a.url}
+                    placeholder="https://..."
+                    onChange={(e) => {
+                      const next = [...form.attachments];
+                      next[idx] = { ...a, url: e.target.value };
+                      setForm({ ...form, attachments: next });
+                    }}
+                  />
+                  <select
+                    value={a.type}
+                    onChange={(e) => {
+                      const next = [...form.attachments];
+                      next[idx] = { ...a, type: e.target.value as AttachmentType };
+                      setForm({ ...form, attachments: next });
+                    }}
+                    className="h-10 w-full rounded-md border border-input bg-background px-2 text-sm"
+                  >
+                    {(Object.keys(ATTACHMENT_TYPE_LABEL) as AttachmentType[]).map((t) => (
+                      <option key={t} value={t}>
+                        {ATTACHMENT_TYPE_LABEL[t]}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = form.attachments.filter((_, i) => i !== idx);
+                      setForm({ ...form, attachments: next });
+                    }}
+                    className="rounded-lg p-2 hover:bg-destructive/10 hover:text-destructive transition justify-self-end"
+                    aria-label="הסרה"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
           <DialogFooter className="flex-row-reverse sm:justify-start gap-2">

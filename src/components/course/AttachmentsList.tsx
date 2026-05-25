@@ -17,9 +17,7 @@ const fileTypeLabel = (name: string) => {
 };
 
 const AttachmentsList = ({ items }: { items: Attachment[] }) => (
-  <section>
-    <h3 className="mb-3 text-lg font-bold">קבצים מצורפים</h3>
-    <div className="grid gap-3 sm:grid-cols-2">
+  <div className="grid gap-3 sm:grid-cols-2">
       {items.map((a) => {
         const Icon = a.icon;
         return (
@@ -54,8 +52,7 @@ const AttachmentsList = ({ items }: { items: Attachment[] }) => (
           </div>
         );
       })}
-    </div>
-  </section>
+  </div>
 );
 
 export default AttachmentsList;
