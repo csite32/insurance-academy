@@ -77,7 +77,7 @@ export async function unassignCourse(userId: string, courseId: string): Promise<
 
 export function subscribeAssignments(onChange: () => void) {
   const channel = supabase
-    .channel("db:assignments")
+    .channel(`db:assignments:${Math.random().toString(36).slice(2)}`)
     .on(
       "postgres_changes",
       { event: "*", schema: "public", table: "assignments" },
