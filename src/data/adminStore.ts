@@ -409,14 +409,35 @@ export const adminStore = {
   },
 
   // ----- users -----
-  async createUser(_input: Omit<AdminUser, "id">) {
-    // Creating auth users requires a privileged server-side flow.
-    // Not yet wired in stage C. UI will still get a refresh.
-    console.warn(
-      "[adminStore] createUser is not supported via the cloud yet — will be added with a server-side endpoint."
-    );
+  async createUser(input: Omit<AdminUser, "id">) {
+    const { data, error } = await supabase.functions.invoke("admin-create-user", {
+      body: {
+        email: input.email,
+        password: input.password,
+        fullName: input.fullName,
+        role: input.role,
+      },
+    });
+    if (error) {
+      // Try to surface the server's error message
+      let msg = error.message || "שגיאה ביצירת משתמש";
+      try {
+        const ctx = (error as { context?: Response }).context;
+        if (ctx && typeof ctx.json === "function") {
+          const j = await ctx.json();
+          if (j?.error) msg = j.error;
+        }
+      } catch { /* ignore */ }
+      throw new Error(msg);
+    }
     await refreshUsers();
-    return null as unknown as AdminUser;
+    return {
+      id: (data as { id: string }).id,
+      fullName: input.fullName,
+      email: input.email,
+      password: "",
+      role: input.role,
+    } as AdminUser;
   },
   async updateUser(id: string, patch: Partial<AdminUser>) {
     const profilePatch: Parameters<typeof usersDb.updateProfile>[1] = {};

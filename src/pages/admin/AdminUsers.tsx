@@ -66,23 +66,35 @@ const AdminUsers = () => {
     if (!form.fullName.trim()) e.fullName = "שדה חובה";
     if (!form.email.trim() || !form.email.includes("@")) e.email = "אימייל לא תקין";
     // Password is only required when creating a new user
-    if (!editing && (!form.password || form.password.length < 4)) {
-      e.password = "סיסמה לפחות 4 תווים";
+    if (!editing && (!form.password || form.password.length < 6)) {
+      e.password = "סיסמה לפחות 6 תווים";
     }
     setErrors(e);
     return Object.keys(e).length === 0;
   };
 
-  const submit = () => {
+  const [submitting, setSubmitting] = useState(false);
+  const submit = async () => {
     if (!validate()) return;
-    if (editing) {
-      adminStore.updateUser(editing.id, form);
-      toast({ title: "המשתמש עודכן" });
-      setEditing(null);
-    } else {
-      adminStore.createUser(form);
-      toast({ title: "משתמש חדש נוצר" });
-      setCreating(false);
+    setSubmitting(true);
+    try {
+      if (editing) {
+        await adminStore.updateUser(editing.id, form);
+        toast({ title: "המשתמש עודכן" });
+        setEditing(null);
+      } else {
+        await adminStore.createUser(form);
+        toast({ title: "משתמש חדש נוצר" });
+        setCreating(false);
+      }
+    } catch (err) {
+      toast({
+        title: "שגיאה",
+        description: err instanceof Error ? err.message : "אירעה שגיאה",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -222,7 +234,9 @@ const AdminUsers = () => {
             </div>
           </div>
           <DialogFooter className="flex-row-reverse sm:justify-start gap-2">
-            <Button onClick={submit}>שמירה</Button>
+            <Button onClick={submit} disabled={submitting}>
+              {submitting ? "שומר..." : "שמירה"}
+            </Button>
             <Button
               variant="outline"
               onClick={() => {
