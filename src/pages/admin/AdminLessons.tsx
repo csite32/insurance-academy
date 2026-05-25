@@ -429,14 +429,6 @@ const AdminLessons = () => {
                 />
                 כולל חידון (תשתית עתידית)
               </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={form.isLocked}
-                  onChange={(e) => setForm({ ...form, isLocked: e.target.checked })}
-                />
-                שיעור נעול
-              </label>
             </div>
 
             <div className="space-y-2 rounded-xl border border-border p-3">
