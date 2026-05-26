@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, BarChart3 } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import {
@@ -20,6 +20,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
+import AdminUserProgressDialog from "@/components/admin/AdminUserProgressDialog";
 
 const initials = (name: string) =>
   name
@@ -47,6 +48,7 @@ const AdminUsers = () => {
   const [form, setForm] = useState<FormState>(empty);
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
   const [toDelete, setToDelete] = useState<AdminUser | null>(null);
+  const [progressUser, setProgressUser] = useState<AdminUser | null>(null);
   const { toast } = useToast();
 
   const openCreate = () => {
@@ -152,6 +154,14 @@ const AdminUsers = () => {
                     <td className="p-3">{count}</td>
                     <td className="p-3">
                       <div className="flex gap-1">
+                        <button
+                          onClick={() => setProgressUser(u)}
+                          className="rounded-lg p-2 hover:bg-muted hover:text-primary transition"
+                          aria-label="צפייה בהתקדמות"
+                          title="צפייה בהתקדמות"
+                        >
+                          <BarChart3 className="h-4 w-4" />
+                        </button>
                         <button
                           onClick={() => openEdit(u)}
                           className="rounded-lg p-2 hover:bg-muted hover:text-primary transition"
@@ -262,6 +272,12 @@ const AdminUsers = () => {
             setToDelete(null);
           }
         }}
+      />
+
+      <AdminUserProgressDialog
+        userId={progressUser?.id ?? null}
+        userName={progressUser?.fullName}
+        onClose={() => setProgressUser(null)}
       />
     </AdminLayout>
   );
