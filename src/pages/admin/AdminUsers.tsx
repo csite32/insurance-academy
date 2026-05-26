@@ -277,6 +277,7 @@ const AdminUsers = () => {
       <AdminUserProgressDialog
         userId={progressUser?.id ?? null}
         userName={progressUser?.fullName}
+        userRole={progressUser?.role}
         onClose={() => setProgressUser(null)}
       />
     </AdminLayout>
