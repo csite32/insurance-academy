@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   UserCircle2,
@@ -15,21 +15,23 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdminStore, useAdminStoreHydration } from "@/data/adminStore";
+import type { CourseProgress } from "@/hooks/useCourseProgress";
 import { getCourseAccess } from "@/lib/access";
 import {
   computeUserCourseRows,
   statusLabel,
   statusClasses,
   type CourseRow,
-  type ProgressSnapshot,
 } from "@/lib/courseRows";
-import {
-  listProgressForUser,
-  subscribeProgress,
-} from "@/lib/db/progressDb";
-import { supabase } from "@/integrations/supabase/client";
 
-type LastViewedRow = { course_id: string; lesson_id: string };
+const readProgress = (userId: string, courseId: string): CourseProgress | null => {
+  try {
+    const raw = localStorage.getItem(`progress:${userId}:${courseId}`);
+    return raw ? (JSON.parse(raw) as CourseProgress) : null;
+  } catch {
+    return null;
+  }
+};
 
 const Profile = () => {
   useAdminStoreHydration();
@@ -41,61 +43,6 @@ const Profile = () => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
-  // Cloud-backed progress map — same source the admin progress dialog reads,
-  // so both views show identical numbers.
-  const [progressByCourse, setProgressByCourse] = useState<Map<string, ProgressSnapshot>>(
-    new Map()
-  );
-
-  useEffect(() => {
-    if (!user?.id) return;
-    const uid = user.id;
-    let cancelled = false;
-
-    const load = async () => {
-      try {
-        const [rows, lvRes] = await Promise.all([
-          listProgressForUser(uid),
-          supabase
-            .from("last_viewed")
-            .select("course_id, lesson_id")
-            .eq("user_id", uid),
-        ]);
-        if (cancelled) return;
-        const m = new Map<string, ProgressSnapshot>();
-        for (const r of rows) {
-          const cur = m.get(r.courseId) ?? {
-            completedLessonIds: [],
-            lastLessonId: null,
-            startedAt: null,
-          };
-          cur.completedLessonIds.push(r.lessonId);
-          if (!cur.startedAt || r.completedAt < cur.startedAt) cur.startedAt = r.completedAt;
-          m.set(r.courseId, cur);
-        }
-        ((lvRes.data ?? []) as LastViewedRow[]).forEach((r) => {
-          const cur = m.get(r.course_id) ?? {
-            completedLessonIds: [],
-            lastLessonId: null,
-            startedAt: null,
-          };
-          cur.lastLessonId = r.lesson_id;
-          m.set(r.course_id, cur);
-        });
-        setProgressByCourse(m);
-      } catch (e) {
-        console.error("[profile] progress load failed", e);
-      }
-    };
-
-    void load();
-    const unsub = subscribeProgress(uid, () => void load());
-    return () => {
-      cancelled = true;
-      unsub();
-    };
-  }, [user?.id]);
-
   const rows: CourseRow[] = useMemo(() => {
     if (!user) return [];
     return computeUserCourseRows({
@@ -104,9 +51,18 @@ const Profile = () => {
       assignedCourses: user.assignedCourses ?? [],
       assignedLessons: user.assignedLessons ?? [],
       isAdmin: user.role === "admin",
-      getProgress: (courseId) => progressByCourse.get(courseId) ?? null,
+      getProgress: (courseId) => {
+        const p = readProgress(user.id, courseId);
+        return p
+          ? {
+              completedLessonIds: p.completedLessonIds,
+              lastLessonId: p.lastLessonId,
+              startedAt: p.startedAt,
+            }
+          : null;
+      },
     });
-  }, [user, adminCourses, adminLessons, progressByCourse]);
+  }, [user, adminCourses, adminLessons]);
 
   if (!user) return null;
 
