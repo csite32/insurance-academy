@@ -14,23 +14,15 @@ import {
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { useAuth } from "@/contexts/AuthContext";
-import { useAdminStore, useAdminStoreHydration, getIcon } from "@/data/adminStore";
-import type { CourseProgress, CourseStatus } from "@/hooks/useCourseProgress";
+import { useAdminStore, useAdminStoreHydration } from "@/data/adminStore";
+import type { CourseProgress } from "@/hooks/useCourseProgress";
 import { getCourseAccess } from "@/lib/access";
-
-type CourseRow = {
-  id: string;
-  title: string;
-  description: string;
-  icon: any;
-  totalLessons: number;
-  completedLessons: number;
-  percent: number;
-  status: CourseStatus;
-  lastLessonId: string | null;
-  startedAt: string | null;
-  accessKind: "full" | "partial";
-};
+import {
+  computeUserCourseRows,
+  statusLabel,
+  statusClasses,
+  type CourseRow,
+} from "@/lib/courseRows";
 
 const readProgress = (userId: string, courseId: string): CourseProgress | null => {
   try {
@@ -39,18 +31,6 @@ const readProgress = (userId: string, courseId: string): CourseProgress | null =
   } catch {
     return null;
   }
-};
-
-const statusLabel: Record<CourseStatus, string> = {
-  not_started: "לא התחיל",
-  in_progress: "בתהליך",
-  completed: "הושלם",
-};
-
-const statusClasses: Record<CourseStatus, string> = {
-  not_started: "bg-muted text-muted-foreground",
-  in_progress: "bg-primary/10 text-primary",
-  completed: "bg-emerald-100 text-emerald-700",
 };
 
 const Profile = () => {
@@ -65,48 +45,23 @@ const Profile = () => {
 
   const rows: CourseRow[] = useMemo(() => {
     if (!user) return [];
-    const assigned = user.assignedCourses ?? [];
-    const assignedLessons = user.assignedLessons ?? [];
-    const isAdmin = user.role === "admin";
-    return adminCourses
-      .filter((c) => c.status === "active")
-      .map((c) => {
-        const access = getCourseAccess(c.id, assigned, assignedLessons, isAdmin);
-        if (access.kind === "none") return null;
-        const courseLessonIds = adminLessons
-          .filter((l) => l.courseId === c.id)
-          .map((l) => l.id);
-        const availableIds =
-          access.kind === "partial"
-            ? courseLessonIds.filter((id) => access.lessonIds.has(id))
-            : courseLessonIds;
-        const totalLessons = availableIds.length;
-        const p = readProgress(user.id, c.id);
-        const completedLessons =
-          p?.completedLessonIds.filter((id) => availableIds.includes(id)).length ?? 0;
-        const percent =
-          totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
-        const status: CourseStatus =
-          completedLessons === 0
-            ? "not_started"
-            : completedLessons >= totalLessons && totalLessons > 0
-              ? "completed"
-              : "in_progress";
-        return {
-          id: c.id,
-          title: c.title,
-          description: c.description,
-          icon: getIcon(c.iconKey),
-          totalLessons,
-          completedLessons,
-          percent,
-          status,
-          lastLessonId: p?.lastLessonId ?? null,
-          startedAt: p?.startedAt ?? null,
-          accessKind: access.kind,
-        } as CourseRow;
-      })
-      .filter((r): r is CourseRow => r !== null);
+    return computeUserCourseRows({
+      courses: adminCourses,
+      lessons: adminLessons,
+      assignedCourses: user.assignedCourses ?? [],
+      assignedLessons: user.assignedLessons ?? [],
+      isAdmin: user.role === "admin",
+      getProgress: (courseId) => {
+        const p = readProgress(user.id, courseId);
+        return p
+          ? {
+              completedLessonIds: p.completedLessonIds,
+              lastLessonId: p.lastLessonId,
+              startedAt: p.startedAt,
+            }
+          : null;
+      },
+    });
   }, [user, adminCourses, adminLessons]);
 
   if (!user) return null;
