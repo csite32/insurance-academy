@@ -25,10 +25,11 @@ type LastViewedRow = { course_id: string; lesson_id: string; viewed_at: string }
 type Props = {
   userId: string | null;
   userName?: string;
+  userRole?: "admin" | "user";
   onClose: () => void;
 };
 
-const AdminUserProgressDialog = ({ userId, userName, onClose }: Props) => {
+const AdminUserProgressDialog = ({ userId, userName, userRole, onClose }: Props) => {
   const courses = useAdminStore((s) => s.courses);
   const lessons = useAdminStore((s) => s.lessons);
   const assignments = useAdminStore((s) => s.assignments);
@@ -110,10 +111,10 @@ const AdminUserProgressDialog = ({ userId, userName, onClose }: Props) => {
       lessons,
       assignedCourses,
       assignedLessons,
-      isAdmin: false,
+      isAdmin: userRole === "admin",
       getProgress: (courseId) => progressByCourse.get(courseId) ?? null,
     });
-  }, [userId, courses, lessons, assignments, lessonAssignments, progressRows, lastViewedByCourse]);
+  }, [userId, userRole, courses, lessons, assignments, lessonAssignments, progressRows, lastViewedByCourse]);
 
   const lessonTitleById = useMemo(() => {
     const m = new Map<string, string>();
