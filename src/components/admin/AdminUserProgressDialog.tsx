@@ -16,10 +16,11 @@ import {
 } from "@/lib/courseRows";
 import {
   listProgressForUser,
-  getLastViewed,
   type DbLessonProgress,
-  type DbLastViewed,
 } from "@/lib/db/progressDb";
+import { supabase } from "@/integrations/supabase/client";
+
+type LastViewedRow = { course_id: string; lesson_id: string; viewed_at: string };
 
 type Props = {
   userId: string | null;
@@ -35,7 +36,9 @@ const AdminUserProgressDialog = ({ userId, userName, onClose }: Props) => {
 
   const [loading, setLoading] = useState(false);
   const [progressRows, setProgressRows] = useState<DbLessonProgress[]>([]);
-  const [lastViewed, setLastViewed] = useState<DbLastViewed | null>(null);
+  const [lastViewedByCourse, setLastViewedByCourse] = useState<Map<string, string>>(
+    new Map()
+  );
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -43,14 +46,28 @@ const AdminUserProgressDialog = ({ userId, userName, onClose }: Props) => {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    Promise.all([listProgressForUser(userId), getLastViewed(userId)])
-      .then(([p, lv]) => {
+    Promise.all([
+      listProgressForUser(userId),
+      supabase
+        .from("last_viewed")
+        .select("course_id, lesson_id, viewed_at")
+        .eq("user_id", userId),
+    ])
+      .then(([p, lvRes]) => {
         if (cancelled) return;
+        if (lvRes.error) throw lvRes.error;
         setProgressRows(p);
-        setLastViewed(lv);
+        const m = new Map<string, string>();
+        ((lvRes.data ?? []) as LastViewedRow[]).forEach((r) => {
+          m.set(r.course_id, r.lesson_id);
+        });
+        setLastViewedByCourse(m);
       })
       .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : "שגיאה בטעינת נתונים");
+        if (!cancelled) {
+          console.error("[admin-progress] load failed", e);
+          setError(e instanceof Error ? e.message : "שגיאה בטעינת נתונים");
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -79,15 +96,15 @@ const AdminUserProgressDialog = ({ userId, userName, onClose }: Props) => {
       if (!cur.startedAt || r.completedAt < cur.startedAt) cur.startedAt = r.completedAt;
       progressByCourse.set(r.courseId, cur);
     }
-    if (lastViewed) {
-      const cur = progressByCourse.get(lastViewed.courseId) ?? {
+    lastViewedByCourse.forEach((lessonId, courseId) => {
+      const cur = progressByCourse.get(courseId) ?? {
         completedLessonIds: [],
         lastLessonId: null,
         startedAt: null,
       };
-      cur.lastLessonId = lastViewed.lessonId;
-      progressByCourse.set(lastViewed.courseId, cur);
-    }
+      cur.lastLessonId = lessonId;
+      progressByCourse.set(courseId, cur);
+    });
     return computeUserCourseRows({
       courses,
       lessons,
@@ -96,7 +113,7 @@ const AdminUserProgressDialog = ({ userId, userName, onClose }: Props) => {
       isAdmin: false,
       getProgress: (courseId) => progressByCourse.get(courseId) ?? null,
     });
-  }, [userId, courses, lessons, assignments, lessonAssignments, progressRows, lastViewed]);
+  }, [userId, courses, lessons, assignments, lessonAssignments, progressRows, lastViewedByCourse]);
 
   const lessonTitleById = useMemo(() => {
     const m = new Map<string, string>();
