@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { Plus, Pencil, Trash2, BarChart3 } from "lucide-react";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
-import UserProgressDialog from "@/components/admin/UserProgressDialog";
 import {
   adminStore,
   useAdminStore,
@@ -48,7 +47,6 @@ const AdminUsers = () => {
   const [form, setForm] = useState<FormState>(empty);
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
   const [toDelete, setToDelete] = useState<AdminUser | null>(null);
-  const [progressUser, setProgressUser] = useState<AdminUser | null>(null);
   const { toast } = useToast();
 
   const openCreate = () => {
@@ -154,14 +152,6 @@ const AdminUsers = () => {
                     <td className="p-3">{count}</td>
                     <td className="p-3">
                       <div className="flex gap-1">
-                        <button
-                          onClick={() => setProgressUser(u)}
-                          className="rounded-lg p-2 hover:bg-muted hover:text-primary transition"
-                          aria-label="צפייה בהתקדמות"
-                          title="צפייה בהתקדמות"
-                        >
-                          <BarChart3 className="h-4 w-4" />
-                        </button>
                         <button
                           onClick={() => openEdit(u)}
                           className="rounded-lg p-2 hover:bg-muted hover:text-primary transition"
@@ -272,11 +262,6 @@ const AdminUsers = () => {
             setToDelete(null);
           }
         }}
-      />
-
-      <UserProgressDialog
-        user={progressUser}
-        onOpenChange={(v) => !v && setProgressUser(null)}
       />
     </AdminLayout>
   );
