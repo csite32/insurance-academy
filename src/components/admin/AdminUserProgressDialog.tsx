@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,39 +8,16 @@ import {
 import { useAdminStore } from "@/data/adminStore";
 import {
   computeUserCourseRows,
-  statusClasses,
-  statusLabel,
   type CourseRow,
-  type ProgressSnapshot,
 } from "@/lib/courseRows";
-import {
-  listProgressForUser,
-  type DbLessonProgress,
-} from "@/lib/db/progressDb";
-import { supabase } from "@/integrations/supabase/client";
+import UserCourseCards from "@/components/profile/UserCourseCards";
+import type { CourseProgress } from "@/hooks/useCourseProgress";
 
-type LastViewedRow = { course_id: string; lesson_id: string; viewed_at: string };
-
-// Same shape Profile.tsx stores in localStorage under `progress:${userId}:${courseId}`.
-type LocalProgress = {
-  completedLessonIds?: string[];
-  lastLessonId?: string | null;
-  startedAt?: string | null;
-};
-
-const readLocalProgress = (
-  userId: string,
-  courseId: string
-): ProgressSnapshot | null => {
+// Mirrors Profile.tsx's local `readProgress` exactly — same key, same shape.
+const readProgress = (userId: string, courseId: string): CourseProgress | null => {
   try {
     const raw = localStorage.getItem(`progress:${userId}:${courseId}`);
-    if (!raw) return null;
-    const p = JSON.parse(raw) as LocalProgress;
-    return {
-      completedLessonIds: p.completedLessonIds ?? [],
-      lastLessonId: p.lastLessonId ?? null,
-      startedAt: p.startedAt ?? null,
-    };
+    return raw ? (JSON.parse(raw) as CourseProgress) : null;
   } catch {
     return null;
   }
@@ -60,77 +36,16 @@ const AdminUserProgressDialog = ({ userId, userName, userRole, onClose }: Props)
   const assignments = useAdminStore((s) => s.assignments);
   const lessonAssignments = useAdminStore((s) => s.lessonAssignments);
 
-  const [loading, setLoading] = useState(false);
-  const [progressRows, setProgressRows] = useState<DbLessonProgress[]>([]);
-  const [lastViewedByCourse, setLastViewedByCourse] = useState<Map<string, string>>(
-    new Map()
-  );
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!userId) return;
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    Promise.all([
-      listProgressForUser(userId),
-      supabase
-        .from("last_viewed")
-        .select("course_id, lesson_id, viewed_at")
-        .eq("user_id", userId),
-    ])
-      .then(([p, lvRes]) => {
-        if (cancelled) return;
-        if (lvRes.error) throw lvRes.error;
-        setProgressRows(p);
-        const m = new Map<string, string>();
-        ((lvRes.data ?? []) as LastViewedRow[]).forEach((r) => {
-          m.set(r.course_id, r.lesson_id);
-        });
-        setLastViewedByCourse(m);
-      })
-      .catch((e) => {
-        if (!cancelled) {
-          console.error("[admin-progress] load failed", e);
-          setError(e instanceof Error ? e.message : "שגיאה בטעינת נתונים");
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [userId]);
-
   const rows: CourseRow[] = useMemo(() => {
     if (!userId) return [];
+    // Exactly the same inputs Profile.tsx feeds into computeUserCourseRows,
+    // but with the selected user's id instead of the logged-in user.
     const assignedCourses = assignments
       .filter((a) => a.userId === userId)
       .map((a) => a.courseId);
     const assignedLessons = lessonAssignments
       .filter((la) => la.userId === userId)
       .map((la) => ({ courseId: la.courseId, lessonId: la.lessonId }));
-    const progressByCourse = new Map<string, ProgressSnapshot>();
-    for (const r of progressRows) {
-      const cur = progressByCourse.get(r.courseId) ?? {
-        completedLessonIds: [],
-        lastLessonId: null,
-        startedAt: null,
-      };
-      cur.completedLessonIds.push(r.lessonId);
-      if (!cur.startedAt || r.completedAt < cur.startedAt) cur.startedAt = r.completedAt;
-      progressByCourse.set(r.courseId, cur);
-    }
-    lastViewedByCourse.forEach((lessonId, courseId) => {
-      const cur = progressByCourse.get(courseId) ?? {
-        completedLessonIds: [],
-        lastLessonId: null,
-        startedAt: null,
-      };
-      cur.lastLessonId = lessonId;
-      progressByCourse.set(courseId, cur);
-    });
     return computeUserCourseRows({
       courses,
       lessons,
@@ -138,24 +53,17 @@ const AdminUserProgressDialog = ({ userId, userName, userRole, onClose }: Props)
       assignedLessons,
       isAdmin: userRole === "admin",
       getProgress: (courseId) => {
-        // Mirror Profile.tsx: prefer the same localStorage snapshot that the
-        // user sees in their personal area; fall back to cloud data so other
-        // devices / fresh browsers still show something.
-        const local = readLocalProgress(userId, courseId);
-        const cloud = progressByCourse.get(courseId) ?? null;
-        if (local && (local.completedLessonIds.length > 0 || local.lastLessonId)) {
-          return local;
-        }
-        return cloud;
+        const p = readProgress(userId, courseId);
+        return p
+          ? {
+              completedLessonIds: p.completedLessonIds,
+              lastLessonId: p.lastLessonId,
+              startedAt: p.startedAt,
+            }
+          : null;
       },
     });
-  }, [userId, userRole, courses, lessons, assignments, lessonAssignments, progressRows, lastViewedByCourse]);
-
-  const lessonTitleById = useMemo(() => {
-    const m = new Map<string, string>();
-    lessons.forEach((l) => m.set(l.id, l.title));
-    return m;
-  }, [lessons]);
+  }, [userId, userRole, courses, lessons, assignments, lessonAssignments]);
 
   const totalAvailable = rows.reduce((s, r) => s + r.totalLessons, 0);
   const totalCompleted = rows.reduce((s, r) => s + r.completedLessons, 0);
@@ -164,95 +72,29 @@ const AdminUserProgressDialog = ({ userId, userName, userRole, onClose }: Props)
 
   return (
     <Dialog open={!!userId} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent dir="rtl" className="text-right max-w-3xl max-h-[85vh] overflow-y-auto">
+      <DialogContent dir="rtl" className="text-right max-w-5xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             דוח התקדמות{userName ? ` — ${userName}` : ""}
           </DialogTitle>
         </DialogHeader>
 
-        {loading ? (
-          <div className="flex items-center justify-center py-12 text-muted-foreground">
-            <Loader2 className="h-5 w-5 animate-spin ml-2" />
-            טוען נתונים...
-          </div>
-        ) : error ? (
-          <p className="text-sm text-destructive py-6">{error}</p>
-        ) : rows.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-6">
-            למשתמש זה לא משויכים קורסים פעילים.
-          </p>
-        ) : (
-          <div className="space-y-4">
-            <div className="rounded-2xl border border-border bg-muted/40 p-4 flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground">התקדמות כוללת</p>
-                <p className="text-2xl font-extrabold text-foreground">{overall}%</p>
-                <p className="text-xs text-muted-foreground">
-                  {totalCompleted} מתוך {totalAvailable} שיעורים זמינים
-                </p>
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {rows.length} קורסים משויכים
-              </div>
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-border bg-muted/40 p-4 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground">התקדמות כוללת</p>
+              <p className="text-2xl font-extrabold text-foreground">{overall}%</p>
+              <p className="text-xs text-muted-foreground">
+                {totalCompleted} מתוך {totalAvailable} שיעורים זמינים
+              </p>
             </div>
+            <div className="text-xs text-muted-foreground">
+              {rows.length} קורסים משויכים
+            </div>
+          </div>
 
-            <div className="space-y-3">
-              {rows.map((row) => {
-                const Icon = row.icon;
-                const lastTitle = row.lastLessonId
-                  ? lessonTitleById.get(row.lastLessonId)
-                  : null;
-                return (
-                  <div
-                    key={row.id}
-                    className="rounded-2xl border border-border bg-card p-4 shadow-sm"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted shrink-0">
-                          <Icon className="h-5 w-5 text-foreground/80" strokeWidth={1.6} />
-                        </div>
-                        <div className="min-w-0">
-                          <h3 className="text-sm font-bold truncate">{row.title}</h3>
-                          {lastTitle && (
-                            <p className="text-xs text-muted-foreground truncate">
-                              שיעור אחרון: {lastTitle}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex flex-wrap items-center justify-end gap-1.5 shrink-0">
-                        {row.accessKind === "partial" && (
-                          <span className="rounded-full bg-primary/10 text-primary px-2.5 py-0.5 text-[10px] font-semibold">
-                            שיעורים נבחרים
-                          </span>
-                        )}
-                        <span
-                          className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${statusClasses[row.status]}`}
-                        >
-                          {statusLabel[row.status]}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-                      <span>
-                        {row.completedLessons}/{row.totalLessons} שיעורים
-                      </span>
-                      <span className="font-semibold text-foreground">{row.percent}%</span>
-                    </div>
-                    <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-primary transition-all duration-700"
-                        style={{ width: `${row.percent}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+          <UserCourseCards rows={rows} />
+        </div>
       </DialogContent>
     </Dialog>
   );
