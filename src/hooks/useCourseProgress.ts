@@ -106,9 +106,6 @@ export function useCourseProgress(userId: string, courseId: string, totalLessons
         const startedAt =
           local?.startedAt ??
           (finalCompleted.length > 0 || finalLastLesson ? new Date().toISOString() : null);
-
-        const isAllDone =
-          totalLessons > 0 && finalCompleted.length >= totalLessons;
         setProgress({
           userId,
           courseId,
