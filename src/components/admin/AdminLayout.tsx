@@ -147,13 +147,14 @@ const AdminLayout = ({
               <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
             )}
           </div>
-          <div className="animate-in fade-in duration-300">{children}</div>
-          {!hydrated && (
+          {hydrated ? (
+            <div className="animate-in fade-in duration-300">{children}</div>
+          ) : (
             <div
-              className="pointer-events-none fixed inset-0 z-10 flex items-center justify-center"
+              className="flex min-h-[50vh] items-center justify-center"
               aria-live="polite"
             >
-              <div className="rounded-full border border-border bg-card/90 px-4 py-2 text-xs font-semibold text-muted-foreground shadow-card">
+              <div className="rounded-full border border-border bg-card px-4 py-2 text-sm font-semibold text-muted-foreground shadow-card">
                 טוען נתונים...
               </div>
             </div>
