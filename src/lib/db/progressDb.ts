@@ -113,31 +113,6 @@ export async function getLastViewed(
   return data ? fromLastViewed(data as LastViewedRow) : null;
 }
 
-export async function listLastViewedForUser(
-  userId: string
-): Promise<DbLastViewed[]> {
-  const { data, error } = await supabase
-    .from("last_viewed")
-    .select("*")
-    .eq("user_id", userId);
-  if (error) throw error;
-  return (data as LastViewedRow[]).map(fromLastViewed);
-}
-
-export async function getLastViewedForCourse(
-  userId: string,
-  courseId: string
-): Promise<DbLastViewed | null> {
-  const { data, error } = await supabase
-    .from("last_viewed")
-    .select("*")
-    .eq("user_id", userId)
-    .eq("course_id", courseId)
-    .maybeSingle();
-  if (error) throw error;
-  return data ? fromLastViewed(data as LastViewedRow) : null;
-}
-
 export async function setLastViewed(
   userId: string,
   courseId: string,
