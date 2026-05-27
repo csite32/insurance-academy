@@ -93,9 +93,13 @@ const buildProgressMap = (
 };
 
 export function useUserProgressMap(userId: string | null | undefined, courseIds: string[]) {
-  const normalizedCourseIds = useMemo(
-    () => Array.from(new Set(courseIds)).sort(),
+  const courseIdsKey = useMemo(
+    () => Array.from(new Set(courseIds)).sort().join("|"),
     [courseIds]
+  );
+  const normalizedCourseIds = useMemo(
+    () => (courseIdsKey ? courseIdsKey.split("|") : []),
+    [courseIdsKey]
   );
   const [progressByCourse, setProgressByCourse] = useState<Record<string, CourseProgress>>({});
 
@@ -162,7 +166,7 @@ export function useUserProgressMap(userId: string | null | undefined, courseIds:
     return () => {
       cancelled = true;
     };
-  }, [userId, normalizedCourseIds]);
+  }, [userId, courseIdsKey]);
 
   return progressByCourse;
 }
