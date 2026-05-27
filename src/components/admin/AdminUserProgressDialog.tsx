@@ -22,6 +22,31 @@ import { supabase } from "@/integrations/supabase/client";
 
 type LastViewedRow = { course_id: string; lesson_id: string; viewed_at: string };
 
+// Same shape Profile.tsx stores in localStorage under `progress:${userId}:${courseId}`.
+type LocalProgress = {
+  completedLessonIds?: string[];
+  lastLessonId?: string | null;
+  startedAt?: string | null;
+};
+
+const readLocalProgress = (
+  userId: string,
+  courseId: string
+): ProgressSnapshot | null => {
+  try {
+    const raw = localStorage.getItem(`progress:${userId}:${courseId}`);
+    if (!raw) return null;
+    const p = JSON.parse(raw) as LocalProgress;
+    return {
+      completedLessonIds: p.completedLessonIds ?? [],
+      lastLessonId: p.lastLessonId ?? null,
+      startedAt: p.startedAt ?? null,
+    };
+  } catch {
+    return null;
+  }
+};
+
 type Props = {
   userId: string | null;
   userName?: string;
@@ -112,7 +137,17 @@ const AdminUserProgressDialog = ({ userId, userName, userRole, onClose }: Props)
       assignedCourses,
       assignedLessons,
       isAdmin: userRole === "admin",
-      getProgress: (courseId) => progressByCourse.get(courseId) ?? null,
+      getProgress: (courseId) => {
+        // Mirror Profile.tsx: prefer the same localStorage snapshot that the
+        // user sees in their personal area; fall back to cloud data so other
+        // devices / fresh browsers still show something.
+        const local = readLocalProgress(userId, courseId);
+        const cloud = progressByCourse.get(courseId) ?? null;
+        if (local && (local.completedLessonIds.length > 0 || local.lastLessonId)) {
+          return local;
+        }
+        return cloud;
+      },
     });
   }, [userId, userRole, courses, lessons, assignments, lessonAssignments, progressRows, lastViewedByCourse]);
 
