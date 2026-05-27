@@ -13,6 +13,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAdminStoreHydration, useAdminHydrated } from "@/data/adminStore";
 
 const links = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true },
@@ -35,6 +36,8 @@ const AdminLayout = ({
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  useAdminStoreHydration();
+  const hydrated = useAdminHydrated();
 
   const handleLogout = () => {
     logout();
@@ -145,6 +148,16 @@ const AdminLayout = ({
             )}
           </div>
           <div className="animate-in fade-in duration-300">{children}</div>
+          {!hydrated && (
+            <div
+              className="pointer-events-none fixed inset-0 z-10 flex items-center justify-center"
+              aria-live="polite"
+            >
+              <div className="rounded-full border border-border bg-card/90 px-4 py-2 text-xs font-semibold text-muted-foreground shadow-card">
+                טוען נתונים...
+              </div>
+            </div>
+          )}
         </main>
       </div>
     </div>
