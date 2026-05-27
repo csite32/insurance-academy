@@ -15,7 +15,7 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdminStore, useAdminStoreHydration } from "@/data/adminStore";
-import type { CourseProgress } from "@/hooks/useCourseProgress";
+import { useUserProgressMap } from "@/hooks/useUserProgressMap";
 import { getCourseAccess } from "@/lib/access";
 import {
   computeUserCourseRows,
@@ -23,20 +23,15 @@ import {
 } from "@/lib/courseRows";
 import UserCourseCards from "@/components/profile/UserCourseCards";
 
-const readProgress = (userId: string, courseId: string): CourseProgress | null => {
-  try {
-    const raw = localStorage.getItem(`progress:${userId}:${courseId}`);
-    return raw ? (JSON.parse(raw) as CourseProgress) : null;
-  } catch {
-    return null;
-  }
-};
-
 const Profile = () => {
   useAdminStoreHydration();
   const { user, uploadAvatar, removeAvatar } = useAuth();
   const adminCourses = useAdminStore((s) => s.courses);
   const adminLessons = useAdminStore((s) => s.lessons);
+  const progressByCourse = useUserProgressMap(
+    user?.id,
+    adminCourses.map((course) => course.id)
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -50,18 +45,9 @@ const Profile = () => {
       assignedCourses: user.assignedCourses ?? [],
       assignedLessons: user.assignedLessons ?? [],
       isAdmin: user.role === "admin",
-      getProgress: (courseId) => {
-        const p = readProgress(user.id, courseId);
-        return p
-          ? {
-              completedLessonIds: p.completedLessonIds,
-              lastLessonId: p.lastLessonId,
-              startedAt: p.startedAt,
-            }
-          : null;
-      },
+      getProgress: (courseId) => progressByCourse[courseId] ?? null,
     });
-  }, [user, adminCourses, adminLessons]);
+  }, [user, adminCourses, adminLessons, progressByCourse]);
 
   if (!user) return null;
 
