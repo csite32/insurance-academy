@@ -11,17 +11,7 @@ import {
   type CourseRow,
 } from "@/lib/courseRows";
 import UserCourseCards from "@/components/profile/UserCourseCards";
-import type { CourseProgress } from "@/hooks/useCourseProgress";
-
-// Mirrors Profile.tsx's local `readProgress` exactly — same key, same shape.
-const readProgress = (userId: string, courseId: string): CourseProgress | null => {
-  try {
-    const raw = localStorage.getItem(`progress:${userId}:${courseId}`);
-    return raw ? (JSON.parse(raw) as CourseProgress) : null;
-  } catch {
-    return null;
-  }
-};
+import { useUserProgressMap } from "@/hooks/useUserProgressMap";
 
 type Props = {
   userId: string | null;
@@ -35,53 +25,28 @@ const AdminUserProgressDialog = ({ userId, userName, userRole, onClose }: Props)
   const lessons = useAdminStore((s) => s.lessons);
   const assignments = useAdminStore((s) => s.assignments);
   const lessonAssignments = useAdminStore((s) => s.lessonAssignments);
+  const progressByCourse = useUserProgressMap(
+    userId,
+    courses.map((course) => course.id)
+  );
 
   const rows: CourseRow[] = useMemo(() => {
     if (!userId) return [];
-    // Exactly the same inputs Profile.tsx feeds into computeUserCourseRows,
-    // but with the selected user's id instead of the logged-in user.
     const assignedCourses = assignments
       .filter((a) => a.userId === userId)
       .map((a) => a.courseId);
     const assignedLessons = lessonAssignments
       .filter((la) => la.userId === userId)
       .map((la) => ({ courseId: la.courseId, lessonId: la.lessonId }));
-    // Debug: collect the localStorage progress snapshots that will be passed
-    // into computeUserCourseRows so we can see whether they are populated.
-    const progressData: Record<string, ReturnType<typeof readProgress>> = {};
-    for (const c of courses) {
-      progressData[c.id] = readProgress(userId, c.id);
-    }
-    const result = computeUserCourseRows({
+    return computeUserCourseRows({
       courses,
       lessons,
       assignedCourses,
       assignedLessons,
       isAdmin: userRole === "admin",
-      getProgress: (courseId) => {
-        const p = readProgress(userId, courseId);
-        return p
-          ? {
-              completedLessonIds: p.completedLessonIds,
-              lastLessonId: p.lastLessonId,
-              startedAt: p.startedAt,
-            }
-          : null;
-      },
+      getProgress: (courseId) => progressByCourse[courseId] ?? null,
     });
-    // eslint-disable-next-line no-console
-    console.log("[admin-progress] debug", {
-      selectedUserId: userId,
-      assignedCourses,
-      assignedLessons,
-      progressData,
-      courseRows: result,
-      localStorageKeys: Object.keys(localStorage).filter((k) =>
-        k.startsWith(`progress:${userId}:`)
-      ),
-    });
-    return result;
-  }, [userId, userRole, courses, lessons, assignments, lessonAssignments]);
+  }, [userId, userRole, courses, lessons, assignments, lessonAssignments, progressByCourse]);
 
   const totalAvailable = rows.reduce((s, r) => s + r.totalLessons, 0);
   const totalCompleted = rows.reduce((s, r) => s + r.completedLessons, 0);

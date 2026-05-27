@@ -3,7 +3,7 @@ import {
   listProgressForUserCourse,
   markLessonCompleted as cloudMarkCompleted,
   unmarkLessonCompleted as cloudUnmarkCompleted,
-  getLastViewed as cloudGetLastViewed,
+  getLastViewedForCourse as cloudGetLastViewedForCourse,
   setLastViewed as cloudSetLastViewed,
 } from "@/lib/db/progressDb";
 
@@ -35,15 +35,7 @@ const empty = (userId: string, courseId: string): CourseProgress => ({
 const isGuestId = (userId: string) => !userId || userId === "guest";
 
 export function useCourseProgress(userId: string, courseId: string, totalLessons: number) {
-  const [progress, setProgress] = useState<CourseProgress>(() => {
-    if (typeof window === "undefined") return empty(userId, courseId);
-    try {
-      const raw = localStorage.getItem(storageKey(userId, courseId));
-      return raw ? (JSON.parse(raw) as CourseProgress) : empty(userId, courseId);
-    } catch {
-      return empty(userId, courseId);
-    }
-  });
+  const [progress, setProgress] = useState<CourseProgress>(() => empty(userId, courseId));
 
   useEffect(() => {
     try {
@@ -53,7 +45,7 @@ export function useCourseProgress(userId: string, courseId: string, totalLessons
     }
   }, [progress, userId, courseId]);
 
-  // Cloud hydration + one-time localStorage -> cloud migration
+  // DB hydration + one-time localStorage -> DB migration
   const hydratedRef = useRef<string>("");
   useEffect(() => {
     if (isGuestId(userId) || !courseId) return;
@@ -64,15 +56,17 @@ export function useCourseProgress(userId: string, courseId: string, totalLessons
     let cancelled = false;
     (async () => {
       try {
-        const [rows, lv] = await Promise.all([
-          listProgressForUserCourse(userId, courseId),
-          cloudGetLastViewed(userId),
-        ]);
+        const loadFromDb = () =>
+          Promise.all([
+            listProgressForUserCourse(userId, courseId),
+            cloudGetLastViewedForCourse(userId, courseId),
+          ]);
+
+        let [rows, lv] = await loadFromDb();
         if (cancelled) return;
 
         const cloudCompleted = rows.map((r) => r.lessonId);
-        const cloudLastLesson =
-          lv && lv.courseId === courseId ? lv.lessonId : null;
+        const cloudLastLesson = lv?.lessonId ?? null;
 
         // Read current local snapshot
         let local: CourseProgress | null = null;
@@ -83,7 +77,7 @@ export function useCourseProgress(userId: string, courseId: string, totalLessons
           local = null;
         }
 
-        // One-time migration: cloud empty but local has data
+        // One-time migration: DB empty but local has data
         if (
           cloudCompleted.length === 0 &&
           local &&
@@ -101,34 +95,43 @@ export function useCourseProgress(userId: string, courseId: string, totalLessons
           } catch {
             /* ignore migration errors, keep local */
           }
-          // After migration local is the truth
-          return;
+          if (cancelled) return;
+
+          [rows, lv] = await loadFromDb();
+          if (cancelled) return;
         }
 
-        // Otherwise: cloud is truth
-        const isAllDone =
-          totalLessons > 0 && cloudCompleted.length >= totalLessons;
+        const finalCompleted = rows.map((r) => r.lessonId);
+        const finalLastLesson = lv?.lessonId ?? null;
+        const isAllDone = totalLessons > 0 && finalCompleted.length >= totalLessons;
+        const startedAt =
+          local?.startedAt ??
+          (finalCompleted.length > 0 || finalLastLesson ? new Date().toISOString() : null);
         setProgress({
           userId,
           courseId,
-          completedLessonIds: cloudCompleted,
-          lastLessonId: cloudLastLesson ?? local?.lastLessonId ?? null,
+          completedLessonIds: finalCompleted,
+          lastLessonId: finalLastLesson,
           status: isAllDone
             ? "completed"
-            : cloudCompleted.length > 0 || cloudLastLesson
+            : finalCompleted.length > 0 || finalLastLesson
             ? "in_progress"
             : "not_started",
-          startedAt:
-            local?.startedAt ??
-            (cloudCompleted.length > 0 || cloudLastLesson
-              ? new Date().toISOString()
-              : null),
+          startedAt,
           completedAt: isAllDone
             ? local?.completedAt ?? new Date().toISOString()
             : null,
         });
       } catch {
-        /* keep local state on error */
+        try {
+          const raw = localStorage.getItem(storageKey(userId, courseId));
+          const local = raw ? (JSON.parse(raw) as CourseProgress) : null;
+          if (local && !cancelled) {
+            setProgress(local);
+          }
+        } catch {
+          /* keep current state on error */
+        }
       }
     })();
 
