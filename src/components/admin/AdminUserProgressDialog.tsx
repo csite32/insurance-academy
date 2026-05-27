@@ -46,7 +46,13 @@ const AdminUserProgressDialog = ({ userId, userName, userRole, onClose }: Props)
     const assignedLessons = lessonAssignments
       .filter((la) => la.userId === userId)
       .map((la) => ({ courseId: la.courseId, lessonId: la.lessonId }));
-    return computeUserCourseRows({
+    // Debug: collect the localStorage progress snapshots that will be passed
+    // into computeUserCourseRows so we can see whether they are populated.
+    const progressData: Record<string, ReturnType<typeof readProgress>> = {};
+    for (const c of courses) {
+      progressData[c.id] = readProgress(userId, c.id);
+    }
+    const result = computeUserCourseRows({
       courses,
       lessons,
       assignedCourses,
@@ -63,6 +69,18 @@ const AdminUserProgressDialog = ({ userId, userName, userRole, onClose }: Props)
           : null;
       },
     });
+    // eslint-disable-next-line no-console
+    console.log("[admin-progress] debug", {
+      selectedUserId: userId,
+      assignedCourses,
+      assignedLessons,
+      progressData,
+      courseRows: result,
+      localStorageKeys: Object.keys(localStorage).filter((k) =>
+        k.startsWith(`progress:${userId}:`)
+      ),
+    });
+    return result;
   }, [userId, userRole, courses, lessons, assignments, lessonAssignments]);
 
   const totalAvailable = rows.reduce((s, r) => s + r.totalLessons, 0);
