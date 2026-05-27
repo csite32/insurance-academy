@@ -56,10 +56,13 @@ export function useCourseProgress(userId: string, courseId: string, totalLessons
     let cancelled = false;
     (async () => {
       try {
-        const [rows, lv] = await Promise.all([
-          listProgressForUserCourse(userId, courseId),
-          cloudGetLastViewedForCourse(userId, courseId),
-        ]);
+        const loadFromDb = () =>
+          Promise.all([
+            listProgressForUserCourse(userId, courseId),
+            cloudGetLastViewedForCourse(userId, courseId),
+          ]);
+
+        let [rows, lv] = await loadFromDb();
         if (cancelled) return;
 
         const cloudCompleted = rows.map((r) => r.lessonId);
@@ -93,15 +96,13 @@ export function useCourseProgress(userId: string, courseId: string, totalLessons
             /* ignore migration errors, keep local */
           }
           if (cancelled) return;
+
+          [rows, lv] = await loadFromDb();
+          if (cancelled) return;
         }
 
-        const finalCompleted =
-          cloudCompleted.length === 0 && local?.completedLessonIds.length
-            ? local.completedLessonIds
-            : cloudCompleted;
-        const finalLastLesson =
-          cloudLastLesson ??
-          (cloudCompleted.length === 0 && !cloudLastLesson ? local?.lastLessonId ?? null : null);
+        const finalCompleted = rows.map((r) => r.lessonId);
+        const finalLastLesson = lv?.lessonId ?? null;
         const isAllDone = totalLessons > 0 && finalCompleted.length >= totalLessons;
         const startedAt =
           local?.startedAt ??

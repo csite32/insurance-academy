@@ -92,37 +92,6 @@ const buildProgressMap = (
   return map;
 };
 
-const mergeLocalMetadata = (
-  userId: string,
-  courseIds: string[],
-  dbMap: Record<string, CourseProgress>
-) => {
-  const merged = { ...dbMap };
-
-  for (const courseId of courseIds) {
-    const local = readLocalProgress(userId, courseId);
-    if (!local) continue;
-
-    if (!merged[courseId]) {
-      merged[courseId] = {
-        ...local,
-        completedLessonIds: [],
-        lastLessonId: null,
-        status: "not_started",
-      };
-      continue;
-    }
-
-    merged[courseId] = {
-      ...merged[courseId],
-      startedAt: local.startedAt ?? merged[courseId].startedAt,
-      completedAt: local.completedAt ?? merged[courseId].completedAt,
-    };
-  }
-
-  return merged;
-};
-
 export function useUserProgressMap(userId: string | null | undefined, courseIds: string[]) {
   const normalizedCourseIds = useMemo(
     () => Array.from(new Set(courseIds)).sort(),
@@ -175,7 +144,7 @@ export function useUserProgressMap(userId: string | null | undefined, courseIds:
         }
 
         if (!cancelled) {
-          setProgressByCourse(mergeLocalMetadata(userId, normalizedCourseIds, dbMap));
+          setProgressByCourse(dbMap);
         }
       } catch {
         const fallback = normalizedCourseIds.reduce<Record<string, CourseProgress>>((acc, courseId) => {
