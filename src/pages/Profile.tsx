@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   UserCircle2,
@@ -17,6 +17,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAdminStore, useAdminStoreHydration } from "@/data/adminStore";
 import type { CourseProgress } from "@/hooks/useCourseProgress";
 import { getCourseAccess } from "@/lib/access";
+import { listProgressForUser, getLastViewed } from "@/lib/db/progressDb";
 import {
   computeUserCourseRows,
   statusLabel,
@@ -42,6 +43,49 @@ const Profile = () => {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [dbProgress, setDbProgress] = useState<
+    Map<string, { completedLessonIds: string[]; lastLessonId: string | null }>
+  >(new Map());
+
+  useEffect(() => {
+    if (!user || user.id === "guest") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [rows, lv] = await Promise.all([
+          listProgressForUser(user.id),
+          getLastViewed(user.id),
+        ]);
+        if (cancelled) return;
+        const m = new Map<
+          string,
+          { completedLessonIds: string[]; lastLessonId: string | null }
+        >();
+        for (const r of rows) {
+          const cur = m.get(r.courseId) ?? {
+            completedLessonIds: [],
+            lastLessonId: null,
+          };
+          cur.completedLessonIds.push(r.lessonId);
+          m.set(r.courseId, cur);
+        }
+        if (lv) {
+          const cur = m.get(lv.courseId) ?? {
+            completedLessonIds: [],
+            lastLessonId: null,
+          };
+          cur.lastLessonId = lv.lessonId;
+          m.set(lv.courseId, cur);
+        }
+        setDbProgress(m);
+      } catch {
+        /* keep localStorage fallback */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   const rows: CourseRow[] = useMemo(() => {
     if (!user) return [];
@@ -52,17 +96,25 @@ const Profile = () => {
       assignedLessons: user.assignedLessons ?? [],
       isAdmin: user.role === "admin",
       getProgress: (courseId) => {
-        const p = readProgress(user.id, courseId);
-        return p
+        const local = readProgress(user.id, courseId);
+        const db = dbProgress.get(courseId);
+        if (db) {
+          return {
+            completedLessonIds: db.completedLessonIds,
+            lastLessonId: db.lastLessonId ?? local?.lastLessonId ?? null,
+            startedAt: local?.startedAt ?? null,
+          };
+        }
+        return local
           ? {
-              completedLessonIds: p.completedLessonIds,
-              lastLessonId: p.lastLessonId,
-              startedAt: p.startedAt,
+              completedLessonIds: local.completedLessonIds,
+              lastLessonId: local.lastLessonId,
+              startedAt: local.startedAt,
             }
           : null;
       },
     });
-  }, [user, adminCourses, adminLessons]);
+  }, [user, adminCourses, adminLessons, dbProgress]);
 
   if (!user) return null;
 

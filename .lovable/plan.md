@@ -1,163 +1,83 @@
-## שלב F: הרשאות ברמת שיעור בודד — תוכנית מלאה
+# תיקון נקודתי: האזור האישי יקרא Progress מה־DB
 
-### עקרונות
-- שינוי תשתיתי רגיש — מבוצע בשלבים נפרדים, עצירה לאישור בין שלב לשלב.
-- ללא שינוי עיצוב כללי, ללא פגיעה ב-Auth/Progress/Avatar/Admin/Course/Profile.
-- `assignments` הקיים נשמר (קורס מלא). מתווסף `lesson_assignments` (שיעור בודד).
-- קבצי Mock נשארים אך לא בשימוש כמקור אמת.
+## הבעיה
+`src/pages/Profile.tsx` קורא progress רק מ־`localStorage` (פונקציה `readProgress`). אם localStorage ריק (דפדפן חדש, ניקוי, מכשיר אחר) — הפרופיל מציג 0 גם כש־`lesson_progress` ב־DB מלא.
 
-### כללי תצוגה למשתמש רגיל (מחייבים בכל המסכים)
-- **לא מוצגים** קורסים שאינם משויכים (לא כקורס מלא ולא דרך שיעור בודד).
-- **אין כפתורי / כרטיסי "אין לך גישה" / "נעול"** בשום מקום.
-- קורס שמשויך במלואו → מוצג רגיל.
-- קורס שיש בו רק שיעורים בודדים → מוצג בעמוד הבית עם תגית **"שיעורים נבחרים"**.
-- בתוך קורס כזה: רק השיעורים המשויכים מוצגים. פרקים ריקים מוסתרים. אין שיעורים נעולים.
-- Progress מחושב **רק** לפי השיעורים הזמינים למשתמש.
+## מה ישתנה
 
----
+**קובץ יחיד: `src/pages/Profile.tsx`**
 
-### שלב F1 — טבלה ומודל נתונים
+1. הוספת `useEffect` שטוען פעם אחת את כל ה־progress של המשתמש מ־DB:
+   - `listProgressForUser(user.id)` מ־`@/lib/db/progressDb`
+   - `cloudGetLastViewed(user.id)` (כבר קיים שם) — לשמירת `lastLessonId` הנכון
+2. הנתונים נשמרים ב־state מקומי בצורה: `Map<courseId, { completedLessonIds, lastLessonId, startedAt }>`.
+3. `getProgress(courseId)` שמועבר ל־`computeUserCourseRows` יחזיר:
+   - אם יש נתונים מה־DB → להחזיר אותם (מקור אמת).
+   - אחרת → fallback ל־`readProgress` הקיים מ־localStorage.
+4. בזמן טעינת ה־DB — להציג את ה־fallback מ־localStorage כפי שעובד היום (אין שינוי UI, אין loading חדש).
 
-**מיגרציה ל-Supabase:**
+## מה לא משתנה
+- `src/hooks/useCourseProgress.ts` — לא נוגעים.
+- `src/lib/courseRows.ts` — חתימה זהה (`getProgress` כבר מקבל courseId ומחזיר snapshot).
+- `src/components/admin/AdminUserProgressDialog.tsx` — לא נוגעים.
+- כל UI, עיצוב, RLS, migrations — ללא שינוי.
+- localStorage נשאר כפי שהוא, כ־fallback בלבד.
 
-טבלה `lesson_assignments`:
-- `user_id` (uuid, NOT NULL)
-- `course_id` (text, NOT NULL)
-- `lesson_id` (text, NOT NULL)
-- `created_at` (timestamptz default now())
-- Primary Key: `(user_id, lesson_id)`
-- Index: `(user_id, course_id)`, `(course_id)`
+## פרטים טכניים
 
-RLS:
-- `lesson_assignments_read_own_or_admin` (SELECT): `auth.uid() = user_id OR has_role(auth.uid(),'admin')`
-- `lesson_assignments_admin_write` (ALL): `has_role(auth.uid(),'admin')`
+```ts
+// בתוך Profile.tsx
+const [dbProgress, setDbProgress] =
+  useState<Map<string, { completedLessonIds: string[]; lastLessonId: string | null }>>(new Map());
 
-Realtime:
-- `ALTER PUBLICATION supabase_realtime ADD TABLE public.lesson_assignments`
+useEffect(() => {
+  if (!user || user.id === "guest") return;
+  let cancelled = false;
+  (async () => {
+    try {
+      const [rows, lv] = await Promise.all([
+        listProgressForUser(user.id),
+        getLastViewed(user.id),
+      ]);
+      if (cancelled) return;
+      const m = new Map<string, { completedLessonIds: string[]; lastLessonId: string | null }>();
+      for (const r of rows) {
+        const cur = m.get(r.courseId) ?? { completedLessonIds: [], lastLessonId: null };
+        cur.completedLessonIds.push(r.lessonId);
+        m.set(r.courseId, cur);
+      }
+      if (lv) {
+        const cur = m.get(lv.courseId) ?? { completedLessonIds: [], lastLessonId: null };
+        cur.lastLessonId = lv.lessonId;
+        m.set(lv.courseId, cur);
+      }
+      setDbProgress(m);
+    } catch { /* keep fallback */ }
+  })();
+  return () => { cancelled = true; };
+}, [user?.id]);
 
-**שכבת DB** — קובץ חדש `src/lib/db/lessonAssignmentsDb.ts`:
-- `listAllLessonAssignments()` — לאדמין/הידרציה
-- `listLessonAssignmentsForUser(userId)` → `Array<{ courseId, lessonId }>`
-- `setLessonAssignmentsForUser(userId, lessonIds: string[])` — מחיקה+הכנסה אטומית
-- `assignLesson` / `unassignLesson`
-- `subscribeLessonAssignments(cb)`
-
-**עצירה ובדיקה:** Build נקי, הטבלה נגישה ב-DB.
-
----
-
-### שלב F2 — UI ניהול מלא ב-`AdminAssignments`
-
-**עדכון `adminStore`:**
-- שדה חדש: `lessonAssignments: { userId, courseId, lessonId }[]`
-- הידרציה מקבילה ל-`assignments`
-- מנוי Realtime נוסף
-- פעולה: `saveUserAssignments(userId, { fullCourses, lessons })` — מעדכנת את שתי הטבלאות
-
-**שדרוג `AdminAssignments.tsx`** (רכיבי shadcn קיימים בלבד, אותו עיצוב כללי):
-
-מבנה:
-```
-┌─ Input חיפוש משתמש (שם / אימייל) ──┐
-│                                     │
-├─ רשימת משתמשים מסוננת ─────────────┤
-│  בחירת משתמש                       │
-├─ פאנל שיוכים למשתמש הנבחר ─────────┤
-│  Accordion עבור כל קורס:           │
-│   [✓] קורס מלא   [תגית סטטוס] [▼] │
-│   תגיות: "קורס מלא" / "שיוך חלקי"  │
-│           / "לא משויך"             │
-│                                     │
-│   כשפתוח:                           │
-│   ├─ פרק 1                          │
-│   │  ├─ [✓] שיעור 1.1               │
-│   │  └─ [ ] שיעור 1.2               │
-│   └─ פרק 2 ...                      │
-│                                     │
-│  [שמור שינויים]  [בטל]              │
-└─────────────────────────────────────┘
+// getProgress: DB אם קיים, אחרת localStorage
+getProgress: (courseId) => {
+  const db = dbProgress.get(courseId);
+  if (db) {
+    const local = readProgress(user.id, courseId);
+    return {
+      completedLessonIds: db.completedLessonIds,
+      lastLessonId: db.lastLessonId ?? local?.lastLessonId ?? null,
+      startedAt: local?.startedAt ?? null,
+    };
+  }
+  return readProgress(user.id, courseId) ? { ... } : null;
+}
 ```
 
-רכיבים: `Accordion`, `Checkbox`, `Badge`, `Input`, `Button`, `ScrollArea` — כולם קיימים.
+## RLS
+לא נדרש שינוי. הפוליסי הקיים `progress_owner_all` מאפשר למשתמש לקרוא את הרשומות שלו (`auth.uid() = user_id`).
 
-התנהגות:
-- "קורס מלא" מסומן → כל השיעורים מסומנים אוטומטית, סטטוס = `קורס מלא`.
-- ביטול "קורס מלא" → לא מבטל את הסימונים האישיים, סטטוס עובר ל-`שיוך חלקי` או `לא משויך`.
-- סימון/ביטול שיעור כשהקורס לא מלא → `שיוך חלקי`.
-- כל השיעורים סומנו ידנית → ההצעה האוטומטית: סימון "קורס מלא".
-- State: `selectedUserId`, `draftFullCourses: Set`, `draftLessons: Set`, `dirty`.
-- שמירה: `saveUserAssignments` → `setAssignmentsForUser` + `setLessonAssignmentsForUser`. Toast הצלחה/שגיאה.
-
-**עצירה ובדיקה:** המנהל יוצר/משנה שיוכים, הנתון נשמר נכון בענן.
-
----
-
-### שלב F3 — חיבור לפרונט (לוגיקת גישה)
-
-**Helper משותף** — קובץ חדש `src/lib/access.ts`:
-- `getCourseAccessMode(courseId, assignedCourses, assignedLessonsByCourse)` → `'full' | 'partial' | 'none'`
-- `getVisibleCourseIds(...)` → רק קורסים עם `full` או `partial`
-- `getVisibleLessonIds(courseId, allLessons, ...)` → לפי mode
-- `getVisibleChapters(allChapters, visibleLessonIds, lessons)` → מסנן פרקים ריקים
-- Admin → רואה הכל.
-
-**עדכון `AuthContext`:**
-- שדה חדש: `assignedLessons: Array<{ courseId, lessonId }>`
-- טעינה ב-`hydrateUser` דרך `listLessonAssignmentsForUser`
-
-**עדכון `CoursesSection` (עמוד הבית):**
-- שימוש ב-`getVisibleCourseIds` — קורסים `none` לא מוצגים כלל.
-- ספירת שיעורים = `getVisibleLessonIds(...).length`.
-- **תגית "שיעורים נבחרים"** על כרטיסי קורסים במצב `partial` (Badge קיים, ללא שינוי עיצוב כללי).
-- **הסרת כל מצב "נעול"** מ-`CourseCard` למשתמש רגיל — אם הקורס מוצג, הוא נגיש.
-
-**עדכון `ContinueLearning` / Profile:**
-- אותו helper — רק קורסים זמינים מוצגים. Progress לפי הגלוי בלבד.
-
-**עצירה ובדיקה:** משתמש רגיל רואה רק תוכן שיש לו אליו גישה.
-
----
-
-### שלב F4 — חיבור לעמוד קורס
-
-**עדכון `src/pages/Course.tsx`:**
-- חישוב `visibleLessonIds` ו-`visibleChapters` בעזרת ה-helper.
-- העברה ל-`LessonSidebar` ול-`LessonContent`.
-- שיעורים לא משויכים — לא מוצגים (לא נעולים).
-- פרקים ללא שיעורים גלויים — לא מוצגים.
-- ניווט בין שיעורים מוגבל לרשימה הגלויה.
-
-**עדכון `useCourseProgress`:**
-- פרמטר חדש אופציונלי `visibleLessonIds?: string[]`.
-- חישוב אחוז = `completedVisible / visibleLessonIds.length`.
-- **אין שינוי בכתיבה/קריאה מ-`lesson_progress` ו-`last_viewed`** — רק חישוב התצוגה משתנה.
-
-**עצירה ובדיקה:** עמוד קורס מציג רק שיעורים מותרים, פרקים ריקים מוסתרים, Progress נכון.
-
----
-
-### שלב F5 — בדיקות סופיות
-
-1. משתמש עם קורס מלא רואה את כל הקורס + Progress רגיל.
-2. משתמש עם שיעורים בודדים רואה את הקורס בעמוד הבית עם תגית **"שיעורים נבחרים"**, ובתוך הקורס רק את השיעורים האלו.
-3. פרקים ריקים מוסתרים.
-4. אין כרטיסי/כפתורי "אין לך גישה" / "נעול" בשום מקום.
-5. קורסים שאינם משויכים כלל — אינם מוצגים.
-6. Progress = completed גלוי / סך גלוי.
-7. שיוך/ביטול במנהל מתעדכן בפרונט (Realtime).
-8. רענון שומר מצב.
-9. שמירת התקדמות שיעורים ממשיכה לעבוד (`lesson_progress`).
-10. Avatar/Header/Profile לא נפגעים.
-11. Build נקי, ללא שגיאות Console.
-
----
-
-### לא נוגעים
-- `useCourseProgress` ברמת הקריאה/כתיבה ל-`lesson_progress`/`last_viewed`
-- מנגנון Avatar / Storage
-- `assignments` הקיים (קורס מלא)
-- RLS של שאר הטבלאות
-- עיצוב כללי / Layout / פונט
-- קבצי Mock
-
-**בסיום כל תת-שלב (F1 → F5)** — עצירה, דיווח, המתנה לאישור.
+## בדיקות
+1. דפדפן חדש / incognito → התחברות כמשתמש עם נתונים ב־`lesson_progress` (למשל `dce7b816-50c1-4a92-b2ce-d224f9a5d701` — 3 ב־elementary, 3 ב־service, 1 ב־sales).
+2. פתיחת `/profile` → לראות את אחוזי ההתקדמות והשיעורים שהושלמו זהים לנתוני ה־DB.
+3. עמוד הקורס ממשיך לעבוד כרגיל (לא נגענו ב־`useCourseProgress`).
+4. דוח המנהל ממשיך לעבוד כרגיל.
+5. Build נקי.
