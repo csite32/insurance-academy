@@ -1,83 +1,47 @@
-# תיקון נקודתי: האזור האישי יקרא Progress מה־DB
+## אבחון בלבד — אין שינוי קוד / migration / שחזור נתונים
 
-## הבעיה
-`src/pages/Profile.tsx` קורא progress רק מ־`localStorage` (פונקציה `readProgress`). אם localStorage ריק (דפדפן חדש, ניקוי, מכשיר אחר) — הפרופיל מציג 0 גם כש־`lesson_progress` ב־DB מלא.
+### 1) האם סימון "הושלם" יוצר רשומה ב־`lesson_progress`
+**כן, נשמר תקין.**
 
-## מה ישתנה
+- ב־`useCourseProgress.ts` הפונקציות `toggleComplete` / `markComplete` קוראות ל־`cloudMarkCompleted(userId, courseId, lessonId)`.
+- `markLessonCompleted` ב־`progressDb.ts` עושה `upsert` על `lesson_progress` עם `onConflict: "user_id,lesson_id"`.
+- בדקתי את אילוצי ה־DB: קיים `PRIMARY KEY` על `(user_id, lesson_id)` ב־`lesson_progress`, ולכן ה־upsert עובד נכון — בלי כפילויות ובלי שגיאה. אין כפילויות בטבלה (`group by ... having count(*)>1` החזיר ריק).
+- בדיקה אמפירית: עבור `demo@academy.co.il` קיימת רשומה אחרונה מ־`2026-05-27 06:22:51` — כלומר כתיבות אכן מגיעות ל־DB.
 
-**קובץ יחיד: `src/pages/Profile.tsx`**
+`user_id` שנשמר הוא תמיד `userId` שמועבר ל־hook מעמוד הקורס, שמגיע מ־`AuthContext` ומבוסס על `supabase.auth` (אותו `id` שב־`profiles` ו־`auth.users`). אין mismatch.
 
-1. הוספת `useEffect` שטוען פעם אחת את כל ה־progress של המשתמש מ־DB:
-   - `listProgressForUser(user.id)` מ־`@/lib/db/progressDb`
-   - `cloudGetLastViewed(user.id)` (כבר קיים שם) — לשמירת `lastLessonId` הנכון
-2. הנתונים נשמרים ב־state מקומי בצורה: `Map<courseId, { completedLessonIds, lastLessonId, startedAt }>`.
-3. `getProgress(courseId)` שמועבר ל־`computeUserCourseRows` יחזיר:
-   - אם יש נתונים מה־DB → להחזיר אותם (מקור אמת).
-   - אחרת → fallback ל־`readProgress` הקיים מ־localStorage.
-4. בזמן טעינת ה־DB — להציג את ה־fallback מ־localStorage כפי שעובד היום (אין שינוי UI, אין loading חדש).
+### 2) האם הפרופיל קורא רשומות חדשות מה־DB אחרי רענון
+**חלקית. קיים באג שגורם לקריאה להישבר.**
 
-## מה לא משתנה
-- `src/hooks/useCourseProgress.ts` — לא נוגעים.
-- `src/lib/courseRows.ts` — חתימה זהה (`getProgress` כבר מקבל courseId ומחזיר snapshot).
-- `src/components/admin/AdminUserProgressDialog.tsx` — לא נוגעים.
-- כל UI, עיצוב, RLS, migrations — ללא שינוי.
-- localStorage נשאר כפי שהוא, כ־fallback בלבד.
-
-## פרטים טכניים
-
-```ts
-// בתוך Profile.tsx
-const [dbProgress, setDbProgress] =
-  useState<Map<string, { completedLessonIds: string[]; lastLessonId: string | null }>>(new Map());
-
-useEffect(() => {
-  if (!user || user.id === "guest") return;
-  let cancelled = false;
-  (async () => {
-    try {
-      const [rows, lv] = await Promise.all([
-        listProgressForUser(user.id),
-        getLastViewed(user.id),
-      ]);
-      if (cancelled) return;
-      const m = new Map<string, { completedLessonIds: string[]; lastLessonId: string | null }>();
-      for (const r of rows) {
-        const cur = m.get(r.courseId) ?? { completedLessonIds: [], lastLessonId: null };
-        cur.completedLessonIds.push(r.lessonId);
-        m.set(r.courseId, cur);
-      }
-      if (lv) {
-        const cur = m.get(lv.courseId) ?? { completedLessonIds: [], lastLessonId: null };
-        cur.lastLessonId = lv.lessonId;
-        m.set(lv.courseId, cur);
-      }
-      setDbProgress(m);
-    } catch { /* keep fallback */ }
-  })();
-  return () => { cancelled = true; };
-}, [user?.id]);
-
-// getProgress: DB אם קיים, אחרת localStorage
-getProgress: (courseId) => {
-  const db = dbProgress.get(courseId);
-  if (db) {
-    const local = readProgress(user.id, courseId);
-    return {
-      completedLessonIds: db.completedLessonIds,
-      lastLessonId: db.lastLessonId ?? local?.lastLessonId ?? null,
-      startedAt: local?.startedAt ?? null,
-    };
-  }
-  return readProgress(user.id, courseId) ? { ... } : null;
-}
+ב־`Profile.tsx` הטעינה היא:
 ```
+Promise.all([ listProgressForUser(user.id), getLastViewed(user.id) ])
+```
+אם **אחת** משתי הקריאות נכשלת — כל הבלוק נופל ל־`catch` ו־`dbProgress` נשאר ריק.
 
-## RLS
-לא נדרש שינוי. הפוליסי הקיים `progress_owner_all` מאפשר למשתמש לקרוא את הרשומות שלו (`auth.uid() = user_id`).
+**הבעיה הספציפית**: `getLastViewed` ב־`progressDb.ts` משתמש ב־`.maybeSingle()` — שמצפה לכל היותר שורה אחת. אבל ב־`last_viewed` ל־`demo@academy.co.il` יש **4 שורות** (אחת לכל קורס: `elementary`, `finance`, `service`, `sales`). זה גורם ל־`maybeSingle()` לזרוק שגיאה → `Promise.all` נכשל → הפרופיל נופל ל־localStorage בלבד → מציג 0 בדפדפן נקי.
 
-## בדיקות
-1. דפדפן חדש / incognito → התחברות כמשתמש עם נתונים ב־`lesson_progress` (למשל `dce7b816-50c1-4a92-b2ce-d224f9a5d701` — 3 ב־elementary, 3 ב־service, 1 ב־sales).
-2. פתיחת `/profile` → לראות את אחוזי ההתקדמות והשיעורים שהושלמו זהים לנתוני ה־DB.
-3. עמוד הקורס ממשיך לעבוד כרגיל (לא נגענו ב־`useCourseProgress`).
-4. דוח המנהל ממשיך לעבוד כרגיל.
-5. Build נקי.
+המשמעות לעתיד: כל עוד למשתמש יש יותר מקורס אחד עם `last_viewed`, הפרופיל לא יצליח להציג progress מה־DB — גם אם הכתיבות עצמן עובדות מצוין.
+
+### 3) האם `completedLessons` בפרופיל מחושב לפי `lesson_progress` בלבד
+**לא לגמרי.** ב־`Profile.tsx` הפונקציה `getProgress(courseId)` מעדיפה DB (`dbProgress`) אם קיים, אחרת נופלת ל־`localStorage`. כל עוד באג ה־`maybeSingle` פוגע בטעינה, `dbProgress` ריק ובפועל החישוב נעשה מ־localStorage.
+
+### 4) האם `localStorage` עדיין משפיע על התצוגה
+**כן, באופן מהותי כרגע.**
+- `useCourseProgress` בעמוד הקורס שומר/קורא גם ל־localStorage תחת `progress:{userId}:{courseId}`.
+- ב־`Profile.tsx`, `readProgress(...)` קורא ישירות מ־localStorage כ־fallback בכל פעם ש־`dbProgress` ריק עבור הקורס.
+- בדפדפן חדש / אחרי ניקוי — אין fallback, ולכן 0.
+
+### 5) האם הכתיבה ל־DB מצליחה או שיש שגיאות silent
+- **כתיבה מצליחה** (PK תואם, ואין כפילויות). אבל **כל קריאת `cloudMarkCompleted`, `cloudUnmarkCompleted`, `cloudSetLastViewed` עטופה ב־`.catch(() => {})`** — ולכן אם תהיה תקלת רשת/RLS, השגיאה תיבלע בלי לוג. כרגע אין אינדיקציה לכשל בכתיבות בפועל.
+- ה־upsert על `last_viewed` עם `onConflict: "user_id,course_id"` תואם ל־PK שקיים בטבלה, ולכן גם כתיבת "שיעור אחרון שנצפה" תקינה.
+
+## מסקנה
+- **מעכשיו, התקדמות חדשה אכן תישמר תקין ב־`lesson_progress`** (וגם ב־`last_viewed`). הכתיבות עובדות, המזהים תואמים, אין כפילויות, ויש PK שמייצב את ה־upsert.
+- **הבעיה היא לא בכתיבה אלא בקריאה בפרופיל**: `getLastViewed(user.id).maybeSingle()` נכשל כשיש למשתמש יותר משורת `last_viewed` אחת, וזה מפיל את כל טעינת ה־progress של הפרופיל ל־catch ריק.
+- **localStorage עדיין משפיע** על תצוגת הפרופיל בפועל, כל עוד הקריאה מה־DB נשברת.
+
+## טכני — לתיקון נקודתי עתידי (לא מבוצע עכשיו)
+- ב־`Profile.tsx`: לפצל את `Promise.all` לשתי קריאות עצמאיות (try/catch נפרד), כך שכשל ב־`last_viewed` לא יבטל את `lesson_progress`.
+- או: להפסיק להשתמש ב־`getLastViewed(userId)` במצב "שורה אחת" בפרופיל, ובמקום זה לטעון את כל שורות `last_viewed` של המשתמש ולמפות לפי `courseId` (כפי שכבר עושה ה־Map בפרופיל). אפשר להוסיף ל־`progressDb.ts` פונקציה `listLastViewedForUser(userId)` בלי לגעת ב־`useCourseProgress`.
+- להוסיף `console.error` מינימלי במקום `.catch(() => {})` כדי שתקלות כתיבה עתידיות לא יהיו silent.
