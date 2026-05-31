@@ -145,7 +145,14 @@ export function useCourseProgress(userId: string, courseId: string, totalLessons
       status: p.status === "completed" ? p.status : "in_progress",
     }));
     if (!isGuestId(userId) && courseId) {
-      cloudSetLastViewed(userId, courseId, lessonId).catch(() => {});
+      cloudSetLastViewed(userId, courseId, lessonId).catch((err) => {
+        console.error("[useCourseProgress] setLastViewed failed", {
+          userId,
+          courseId,
+          lessonId,
+          error: err,
+        });
+      });
     }
   }, [userId, courseId]);
 
@@ -171,7 +178,15 @@ export function useCourseProgress(userId: string, courseId: string, totalLessons
         (willBeCompleted
           ? cloudMarkCompleted(userId, courseId, lessonId)
           : cloudUnmarkCompleted(userId, lessonId)
-        ).catch(() => {});
+        ).catch((err) => {
+          console.error("[useCourseProgress] toggleComplete failed", {
+            userId,
+            courseId,
+            lessonId,
+            willBeCompleted,
+            error: err,
+          });
+        });
       }
     },
     [totalLessons, userId, courseId]
@@ -194,7 +209,14 @@ export function useCourseProgress(userId: string, courseId: string, totalLessons
         };
       });
       if (didAdd && !isGuestId(userId) && courseId) {
-        cloudMarkCompleted(userId, courseId, lessonId).catch(() => {});
+        cloudMarkCompleted(userId, courseId, lessonId).catch((err) => {
+          console.error("[useCourseProgress] markComplete failed", {
+            userId,
+            courseId,
+            lessonId,
+            error: err,
+          });
+        });
       }
     },
     [totalLessons, userId, courseId]

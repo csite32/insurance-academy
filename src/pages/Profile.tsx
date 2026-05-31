@@ -17,7 +17,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAdminStore, useAdminStoreHydration } from "@/data/adminStore";
 import type { CourseProgress } from "@/hooks/useCourseProgress";
 import { getCourseAccess } from "@/lib/access";
-import { listProgressForUser, listLastViewedForUser } from "@/lib/db/progressDb";
+import {
+  listProgressForUser,
+  listLastViewedForUser,
+  markLessonCompleted,
+  setLastViewed,
+} from "@/lib/db/progressDb";
 import {
   computeUserCourseRows,
   statusLabel,
@@ -56,8 +61,79 @@ const Profile = () => {
         listLastViewedForUser(user.id),
       ]);
       if (cancelled) return;
-      const rows = rowsRes.status === "fulfilled" ? rowsRes.value : [];
-      const lvList = lvRes.status === "fulfilled" ? lvRes.value : [];
+      let rows = rowsRes.status === "fulfilled" ? rowsRes.value : [];
+      let lvList = lvRes.status === "fulfilled" ? lvRes.value : [];
+
+      // One-time, idempotent migration: lift legacy localStorage progress into
+      // the cloud. PK on (user_id,lesson_id) / (user_id,course_id) keeps writes
+      // safe to repeat. localStorage is NOT deleted — it stays as fallback.
+      try {
+        const dbCompletedByCourse = new Map<string, Set<string>>();
+        for (const r of rows) {
+          if (!dbCompletedByCourse.has(r.courseId))
+            dbCompletedByCourse.set(r.courseId, new Set());
+          dbCompletedByCourse.get(r.courseId)!.add(r.lessonId);
+        }
+        const dbLastViewedCourses = new Set(lvList.map((lv) => lv.courseId));
+
+        const migrations: Promise<unknown>[] = [];
+        const prefix = `progress:${user.id}:`;
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (!key || !key.startsWith(prefix)) continue;
+          const courseId = key.slice(prefix.length);
+          if (!courseId) continue;
+          let local: CourseProgress | null = null;
+          try {
+            const raw = localStorage.getItem(key);
+            local = raw ? (JSON.parse(raw) as CourseProgress) : null;
+          } catch {
+            local = null;
+          }
+          if (!local) continue;
+          const dbSet = dbCompletedByCourse.get(courseId) ?? new Set<string>();
+          for (const lessonId of local.completedLessonIds ?? []) {
+            if (!lessonId || dbSet.has(lessonId)) continue;
+            migrations.push(
+              markLessonCompleted(user.id, courseId, lessonId).catch((err) => {
+                console.error("[Profile] migrate lesson_progress failed", {
+                  userId: user.id,
+                  courseId,
+                  lessonId,
+                  error: err,
+                });
+              })
+            );
+          }
+          if (local.lastLessonId && !dbLastViewedCourses.has(courseId)) {
+            const lastLessonId = local.lastLessonId;
+            migrations.push(
+              setLastViewed(user.id, courseId, lastLessonId).catch((err) => {
+                console.error("[Profile] migrate last_viewed failed", {
+                  userId: user.id,
+                  courseId,
+                  lessonId: lastLessonId,
+                  error: err,
+                });
+              })
+            );
+          }
+        }
+        if (migrations.length > 0) {
+          await Promise.allSettled(migrations);
+          if (cancelled) return;
+          const [rowsRes2, lvRes2] = await Promise.allSettled([
+            listProgressForUser(user.id),
+            listLastViewedForUser(user.id),
+          ]);
+          if (cancelled) return;
+          if (rowsRes2.status === "fulfilled") rows = rowsRes2.value;
+          if (lvRes2.status === "fulfilled") lvList = lvRes2.value;
+        }
+      } catch (err) {
+        console.error("[Profile] localStorage->cloud migration failed", err);
+      }
+
       try {
         const m = new Map<
           string,
