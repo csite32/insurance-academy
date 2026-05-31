@@ -17,7 +17,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAdminStore, useAdminStoreHydration } from "@/data/adminStore";
 import type { CourseProgress } from "@/hooks/useCourseProgress";
 import { getCourseAccess } from "@/lib/access";
-import { listProgressForUser, getLastViewed } from "@/lib/db/progressDb";
+import { listProgressForUser, listLastViewedForUser } from "@/lib/db/progressDb";
 import {
   computeUserCourseRows,
   statusLabel,
@@ -51,12 +51,14 @@ const Profile = () => {
     if (!user || user.id === "guest") return;
     let cancelled = false;
     (async () => {
+      const [rowsRes, lvRes] = await Promise.allSettled([
+        listProgressForUser(user.id),
+        listLastViewedForUser(user.id),
+      ]);
+      if (cancelled) return;
+      const rows = rowsRes.status === "fulfilled" ? rowsRes.value : [];
+      const lvList = lvRes.status === "fulfilled" ? lvRes.value : [];
       try {
-        const [rows, lv] = await Promise.all([
-          listProgressForUser(user.id),
-          getLastViewed(user.id),
-        ]);
-        if (cancelled) return;
         const m = new Map<
           string,
           { completedLessonIds: string[]; lastLessonId: string | null }
@@ -69,7 +71,7 @@ const Profile = () => {
           cur.completedLessonIds.push(r.lessonId);
           m.set(r.courseId, cur);
         }
-        if (lv) {
+        for (const lv of lvList) {
           const cur = m.get(lv.courseId) ?? {
             completedLessonIds: [],
             lastLessonId: null,
