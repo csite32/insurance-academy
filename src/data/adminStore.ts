@@ -227,19 +227,27 @@ export async function ensureHydrated(): Promise<void> {
   if (hydrated) return;
   if (hydrating) return hydrating;
   hydrating = (async () => {
-    // Wait for an auth session before issuing reads — RLS requires authenticated.
-    const { data } = await supabase.auth.getSession();
-    currentAuthUserId = data.session?.user?.id ?? null;
-    if (!currentAuthUserId) {
-      // Not signed in yet; the auth listener will re-trigger hydration on sign-in.
+    try {
+      // Wait for an auth session before issuing reads — RLS requires authenticated.
+      const { data } = await supabase.auth.getSession();
+      currentAuthUserId = data.session?.user?.id ?? null;
+      if (!currentAuthUserId) {
+        // Not signed in yet; the auth listener will re-trigger hydration on sign-in.
+        return;
+      }
+      await hydrateAll();
+      // Tear down any pre-existing subscriptions before re-subscribing (race guard).
+      if (unsubAll.length > 0) {
+        unsubAll.forEach((u) => u());
+        unsubAll = [];
+      }
+      startSubscriptions();
+      hydrated = true;
+      hydratedAt = Date.now();
+      emit();
+    } finally {
       hydrating = null;
-      return;
     }
-    await hydrateAll();
-    startSubscriptions();
-    hydrated = true;
-    hydratedAt = Date.now();
-    emit();
   })();
   return hydrating;
 }
@@ -247,12 +255,20 @@ export async function ensureHydrated(): Promise<void> {
 function startAuthListener() {
   if (authListenerStarted) return;
   authListenerStarted = true;
-  supabase.auth.onAuthStateChange((_event, session) => {
+  supabase.auth.onAuthStateChange((event, session) => {
     const nextId = session?.user?.id ?? null;
-    if (nextId === currentAuthUserId) return;
-    currentAuthUserId = nextId;
-    if (!nextId) {
-      // Signed out — clear state and allow re-hydration on next sign-in.
+
+    // Ignore noisy non-transition events. INITIAL_SESSION fires right after
+    // subscribe, and TOKEN_REFRESHED / USER_UPDATED do not change identity —
+    // none of them should wipe the admin store. A failed refresh that emits
+    // session=null without an explicit SIGNED_OUT event must NOT clear data.
+    if (event !== "SIGNED_IN" && event !== "SIGNED_OUT") {
+      return;
+    }
+
+    if (event === "SIGNED_OUT") {
+      if (currentAuthUserId === null) return;
+      currentAuthUserId = null;
       hydrated = false;
       hydrating = null;
       unsubAll.forEach((u) => u());
@@ -267,7 +283,10 @@ function startAuthListener() {
       });
       return;
     }
-    // Signed in (or switched user) — force re-hydration.
+
+    // SIGNED_IN — only act on actual user transitions.
+    if (!nextId || nextId === currentAuthUserId) return;
+    currentAuthUserId = nextId;
     hydrated = false;
     hydrating = null;
     unsubAll.forEach((u) => u());
