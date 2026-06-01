@@ -20,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import type { QuizData, QuizQuestionData } from "@/lib/db/lessonsDb";
 
 type FormState = {
   title: string;
@@ -31,6 +32,8 @@ type FormState = {
   hasQuiz: boolean;
   isLocked: boolean;
   attachments: AttachmentEntry[];
+  quizTitle: string;
+  quizQuestions: QuizQuestionData[];
 };
 
 type AttachmentType = "pdf" | "doc" | "ppt" | "link";
@@ -70,6 +73,23 @@ const inferTypeFromName = (name: string): AttachmentType => {
 
 const sanitizeFileName = (name: string) =>
   name.replace(/[^\w.\-]+/g, "_").slice(0, 120);
+
+const newBlankQuestion = (): QuizQuestionData => ({
+  id: `q-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+  question: "",
+  answers: ["", "", ""],
+  correctAnswer: "",
+  correctFeedback: "",
+  wrongFeedback: "",
+});
+
+const isValidQuestion = (q: QuizQuestionData): boolean => {
+  if (!q.question.trim()) return false;
+  const answers = (q.answers ?? []).map((a) => a.trim());
+  if (answers.length !== 3 || answers.some((a) => !a)) return false;
+  if (!q.correctAnswer.trim()) return false;
+  return answers.includes(q.correctAnswer.trim());
+};
 
 const AdminLessons = () => {
   const courses = useAdminStore((s) => s.courses);
