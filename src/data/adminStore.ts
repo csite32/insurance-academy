@@ -12,6 +12,7 @@ import {
 import * as coursesDb from "@/lib/db/coursesDb";
 import * as chaptersDb from "@/lib/db/chaptersDb";
 import * as lessonsDb from "@/lib/db/lessonsDb";
+import type { QuizData } from "@/lib/db/lessonsDb";
 import * as usersDb from "@/lib/db/usersDb";
 import * as assignmentsDb from "@/lib/db/assignmentsDb";
 import * as lessonAssignmentsDb from "@/lib/db/lessonAssignmentsDb";
@@ -32,7 +33,7 @@ export type AdminLesson = {
   courseId: string;
   chapterId: string;
   hasQuiz: boolean;
-  quiz: null;
+  quiz: QuizData | null;
   isLocked: boolean;
 };
 
@@ -155,7 +156,7 @@ async function refreshLessons() {
       courseId: l.courseId,
       chapterId: l.chapterId,
       hasQuiz: l.hasQuiz,
-      quiz: null,
+      quiz: (l.quiz as QuizData | null) ?? null,
       isLocked: l.isLocked,
     })),
   });
@@ -373,7 +374,7 @@ export const adminStore = {
 
   // ----- lessons -----
   async createLesson(
-    input: Omit<AdminLesson, "id" | "order" | "quiz"> & { order?: number }
+    input: Omit<AdminLesson, "id" | "order" | "quiz"> & { order?: number; quiz?: QuizData | null }
   ) {
     const created = await lessonsDb.createLesson({
       title: input.title,
@@ -386,6 +387,7 @@ export const adminStore = {
       hasQuiz: input.hasQuiz,
       isLocked: input.isLocked,
       order: input.order,
+      quiz: input.quiz ?? null,
     });
     await refreshLessons();
     return {
@@ -399,7 +401,7 @@ export const adminStore = {
       courseId: created.courseId,
       chapterId: created.chapterId,
       hasQuiz: created.hasQuiz,
-      quiz: null,
+      quiz: (created.quiz as QuizData | null) ?? null,
       isLocked: created.isLocked,
     } as AdminLesson;
   },
@@ -415,6 +417,7 @@ export const adminStore = {
     if (patch.chapterId !== undefined) dbPatch.chapterId = patch.chapterId;
     if (patch.hasQuiz !== undefined) dbPatch.hasQuiz = patch.hasQuiz;
     if (patch.isLocked !== undefined) dbPatch.isLocked = patch.isLocked;
+    if (patch.quiz !== undefined) dbPatch.quiz = patch.quiz ?? null;
     await lessonsDb.updateLesson(id, dbPatch);
     await refreshLessons();
   },
