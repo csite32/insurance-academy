@@ -37,6 +37,9 @@ const isGuestId = (userId: string) => !userId || userId === "guest";
 export function useCourseProgress(userId: string, courseId: string, totalLessons: number) {
   const [progress, setProgress] = useState<CourseProgress>(() => {
     if (typeof window === "undefined") return empty(userId, courseId);
+    // Don't seed from localStorage for guest/empty users — avoids flashing a
+    // stale/zeroed snapshot before the real user id is ready.
+    if (isGuestId(userId)) return empty(userId, courseId);
     try {
       const raw = localStorage.getItem(storageKey(userId, courseId));
       return raw ? (JSON.parse(raw) as CourseProgress) : empty(userId, courseId);
@@ -46,6 +49,8 @@ export function useCourseProgress(userId: string, courseId: string, totalLessons
   });
 
   useEffect(() => {
+    // Don't persist guest/empty progress to localStorage.
+    if (isGuestId(userId)) return;
     try {
       localStorage.setItem(storageKey(userId, courseId), JSON.stringify(progress));
     } catch {
