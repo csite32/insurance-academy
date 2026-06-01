@@ -109,8 +109,11 @@ const AdminLessons = () => {
     hasQuiz: false,
     isLocked: false,
     attachments: [],
+    quizTitle: "",
+    quizQuestions: [],
   });
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
+  const [quizError, setQuizError] = useState<string | null>(null);
   const [toDelete, setToDelete] = useState<AdminLesson | null>(null);
   const { toast } = useToast();
   const [uploadingIdx, setUploadingIdx] = useState<number | null>(null);
@@ -177,8 +180,11 @@ const AdminLessons = () => {
       hasQuiz: false,
       isLocked: false,
       attachments: [],
+      quizTitle: "",
+      quizQuestions: [],
     });
     setErrors({});
+    setQuizError(null);
     setCreating(true);
   };
 
@@ -193,8 +199,18 @@ const AdminLessons = () => {
       hasQuiz: l.hasQuiz,
       isLocked: l.isLocked,
       attachments: (l.attachments ?? []).map(parseAttachmentRaw),
+      quizTitle: l.quiz?.title ?? "",
+      quizQuestions: (l.quiz?.questions ?? []).map((q) => ({
+        id: q.id,
+        question: q.question,
+        answers: [q.answers[0] ?? "", q.answers[1] ?? "", q.answers[2] ?? ""],
+        correctAnswer: q.correctAnswer,
+        correctFeedback: q.correctFeedback ?? "",
+        wrongFeedback: q.wrongFeedback ?? "",
+      })),
     });
     setErrors({});
+    setQuizError(null);
     setEditing(l);
   };
 
@@ -212,6 +228,34 @@ const AdminLessons = () => {
     const attachments = form.attachments
       .filter((a) => a.name.trim() && a.url.trim())
       .map(serializeAttachment);
+
+    // Build quiz payload (or null) with validation.
+    let quizPayload: QuizData | null = null;
+    if (form.hasQuiz) {
+      const cleaned = form.quizQuestions
+        .map((q) => ({
+          ...q,
+          question: q.question.trim(),
+          answers: q.answers.map((a) => a.trim()),
+          correctAnswer: q.correctAnswer.trim(),
+          correctFeedback: q.correctFeedback?.trim() || "",
+          wrongFeedback: q.wrongFeedback?.trim() || "",
+        }))
+        .filter(isValidQuestion);
+      if (cleaned.length === 0) {
+        const msg =
+          "יש להוסיף לפחות שאלה אחת תקינה (טקסט שאלה, 3 תשובות, תשובה נכונה מסומנת), או לבטל את 'כולל חידון'.";
+        setQuizError(msg);
+        toast({ title: "לא ניתן לשמור חידון ריק", description: msg, variant: "destructive" });
+        return;
+      }
+      quizPayload = {
+        title: form.quizTitle.trim() || "חידון השיעור",
+        questions: cleaned,
+      };
+    }
+    setQuizError(null);
+
     if (editing) {
       adminStore.updateLesson(editing.id, {
         title: form.title,
@@ -223,6 +267,7 @@ const AdminLessons = () => {
         hasQuiz: form.hasQuiz,
         isLocked: form.isLocked,
         attachments,
+        quiz: quizPayload,
       });
       toast({ title: "השיעור עודכן" });
       setEditing(null);
@@ -237,6 +282,7 @@ const AdminLessons = () => {
         chapterId: form.chapterId,
         hasQuiz: form.hasQuiz,
         isLocked: form.isLocked,
+        quiz: quizPayload,
       });
       toast({ title: "שיעור חדש נוצר" });
       setCreating(false);
