@@ -41,7 +41,7 @@ const readProgress = (userId: string, courseId: string): CourseProgress | null =
 
 const Profile = () => {
   useAdminStoreHydration();
-  const { user, uploadAvatar, removeAvatar } = useAuth();
+  const { user, loading: authLoading, uploadAvatar, removeAvatar } = useAuth();
   const adminCourses = useAdminStore((s) => s.courses);
   const adminLessons = useAdminStore((s) => s.lessons);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -51,9 +51,11 @@ const Profile = () => {
   const [dbProgress, setDbProgress] = useState<
     Map<string, { completedLessonIds: string[]; lastLessonId: string | null }>
   >(new Map());
+  const [dbLoaded, setDbLoaded] = useState(false);
 
   useEffect(() => {
     if (!user || user.id === "guest") return;
+    setDbLoaded(false);
     let cancelled = false;
     (async () => {
       const [rowsRes, lvRes] = await Promise.allSettled([
@@ -159,6 +161,7 @@ const Profile = () => {
       } catch {
         /* keep localStorage fallback */
       }
+      if (!cancelled) setDbLoaded(true);
     })();
     return () => {
       cancelled = true;
@@ -167,6 +170,9 @@ const Profile = () => {
 
   const rows: CourseRow[] = useMemo(() => {
     if (!user) return [];
+    // Wait until DB progress has loaded before computing rows — otherwise
+    // local fallback can show a zeroed/stale snapshot before cloud truth.
+    if (!dbLoaded) return [];
     return computeUserCourseRows({
       courses: adminCourses,
       lessons: adminLessons,
@@ -174,27 +180,32 @@ const Profile = () => {
       assignedLessons: user.assignedLessons ?? [],
       isAdmin: user.role === "admin",
       getProgress: (courseId) => {
-        const local = readProgress(user.id, courseId);
         const db = dbProgress.get(courseId);
         if (db) {
           return {
             completedLessonIds: db.completedLessonIds,
-            lastLessonId: db.lastLessonId ?? local?.lastLessonId ?? null,
-            startedAt: local?.startedAt ?? null,
+            lastLessonId: db.lastLessonId,
+            startedAt: null,
           };
         }
-        return local
-          ? {
-              completedLessonIds: local.completedLessonIds,
-              lastLessonId: local.lastLessonId,
-              startedAt: local.startedAt,
-            }
-          : null;
+        return null;
       },
     });
-  }, [user, adminCourses, adminLessons, dbProgress]);
+  }, [user, adminCourses, adminLessons, dbProgress, dbLoaded]);
 
-  if (!user) return null;
+  if (authLoading || !user) {
+    return (
+      <div dir="rtl" className="min-h-screen bg-background">
+        <Header />
+        <main className="container py-20 text-center text-muted-foreground">
+          טוען...
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  const progressLoading = !dbLoaded;
 
   const totalLessons = rows.reduce((s, r) => s + r.totalLessons, 0);
   const totalCompleted = rows.reduce((s, r) => s + r.completedLessons, 0);
