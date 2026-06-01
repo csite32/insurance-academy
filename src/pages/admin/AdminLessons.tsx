@@ -493,9 +493,140 @@ const AdminLessons = () => {
                   checked={form.hasQuiz}
                   onChange={(e) => setForm({ ...form, hasQuiz: e.target.checked })}
                 />
-                כולל חידון (תשתית עתידית)
+                כולל חידון
               </label>
             </div>
+
+            {form.hasQuiz && (
+              <div className="space-y-3 rounded-xl border border-border p-3">
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-semibold">כותרת החידון</Label>
+                  <Input
+                    value={form.quizTitle}
+                    onChange={(e) => setForm({ ...form, quizTitle: e.target.value })}
+                    placeholder="חידון השיעור"
+                  />
+                </div>
+
+                {form.quizQuestions.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    אין שאלות. הוסף לפחות שאלה אחת.
+                  </p>
+                )}
+
+                {form.quizQuestions.map((q, qi) => (
+                  <div
+                    key={q.id}
+                    className="space-y-2 rounded-lg border border-border/70 bg-muted/30 p-3"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-muted-foreground">
+                        שאלה {qi + 1}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = form.quizQuestions.filter((_, i) => i !== qi);
+                          setForm({ ...form, quizQuestions: next });
+                        }}
+                        className="rounded-lg p-1.5 hover:bg-destructive/10 hover:text-destructive transition"
+                        aria-label="מחיקת שאלה"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <Input
+                      value={q.question}
+                      placeholder="טקסט השאלה"
+                      onChange={(e) => {
+                        const next = [...form.quizQuestions];
+                        next[qi] = { ...q, question: e.target.value };
+                        setForm({ ...form, quizQuestions: next });
+                      }}
+                    />
+                    <div className="space-y-1.5">
+                      {[0, 1, 2].map((ai) => {
+                        const ans = q.answers[ai] ?? "";
+                        const isCorrect = q.correctAnswer && q.correctAnswer === ans;
+                        return (
+                          <div key={ai} className="flex items-center gap-2">
+                            <input
+                              type="radio"
+                              name={`correct-${q.id}`}
+                              checked={!!isCorrect}
+                              disabled={!ans.trim()}
+                              onChange={() => {
+                                const next = [...form.quizQuestions];
+                                next[qi] = { ...q, correctAnswer: ans };
+                                setForm({ ...form, quizQuestions: next });
+                              }}
+                              aria-label="סמן כתשובה נכונה"
+                            />
+                            <Input
+                              value={ans}
+                              placeholder={`תשובה ${ai + 1}`}
+                              onChange={(e) => {
+                                const next = [...form.quizQuestions];
+                                const answers = [...q.answers];
+                                const prev = answers[ai] ?? "";
+                                answers[ai] = e.target.value;
+                                let correctAnswer = q.correctAnswer;
+                                if (correctAnswer && correctAnswer === prev) {
+                                  correctAnswer = e.target.value;
+                                }
+                                next[qi] = { ...q, answers, correctAnswer };
+                                setForm({ ...form, quizQuestions: next });
+                              }}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                      <Textarea
+                        rows={2}
+                        value={q.correctFeedback ?? ""}
+                        placeholder="פידבק לתשובה נכונה"
+                        onChange={(e) => {
+                          const next = [...form.quizQuestions];
+                          next[qi] = { ...q, correctFeedback: e.target.value };
+                          setForm({ ...form, quizQuestions: next });
+                        }}
+                      />
+                      <Textarea
+                        rows={2}
+                        value={q.wrongFeedback ?? ""}
+                        placeholder="פידבק לתשובה שגויה"
+                        onChange={(e) => {
+                          const next = [...form.quizQuestions];
+                          next[qi] = { ...q, wrongFeedback: e.target.value };
+                          setForm({ ...form, quizQuestions: next });
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    setForm({
+                      ...form,
+                      quizQuestions: [...form.quizQuestions, newBlankQuestion()],
+                    })
+                  }
+                >
+                  <Plus className="h-4 w-4 ml-1" />
+                  הוספת שאלה
+                </Button>
+
+                {quizError && (
+                  <p className="text-xs font-semibold text-destructive">{quizError}</p>
+                )}
+              </div>
+            )}
 
             <div className="space-y-2 rounded-xl border border-border p-3">
               <div className="flex items-center justify-between">
