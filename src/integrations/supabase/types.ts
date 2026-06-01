@@ -210,6 +210,7 @@ export type Database = {
           id: string
           is_locked: boolean
           order: number
+          quiz: Json | null
           title: string
           video_url: string | null
         }
@@ -224,6 +225,7 @@ export type Database = {
           id: string
           is_locked?: boolean
           order?: number
+          quiz?: Json | null
           title: string
           video_url?: string | null
         }
@@ -238,6 +240,7 @@ export type Database = {
           id?: string
           is_locked?: boolean
           order?: number
+          quiz?: Json | null
           title?: string
           video_url?: string | null
         }
