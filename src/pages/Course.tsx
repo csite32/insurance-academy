@@ -18,7 +18,7 @@ import { getCourseAccess, filterCourseByAccess } from "@/lib/access";
 
 const CoursePage = () => {
   const { id = "" } = useParams();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   useAdminStoreHydration();
   const hydrated = useAdminHydrated();
   // Re-render when admin store changes
@@ -54,8 +54,13 @@ const CoursePage = () => {
   const flatLessons = useMemo(() => getFlatLessons(course), [course]);
   const total = flatLessons.length;
 
+  const authReady = !authLoading && !!user?.id;
+  // Until auth is fully ready, pass an empty userId so the hook stays inert
+  // (no cloud fetch, no localStorage write). Prevents a "guest" snapshot from
+  // polluting state or flashing zeroed progress.
+  const progressUserId = authReady ? (user!.id as string) : "";
   const { progress, setLastLesson, toggleComplete, percent, completedCount } =
-    useCourseProgress(user?.id ?? "guest", course.id, total);
+    useCourseProgress(progressUserId, course.id, total);
 
   const initialLessonId = progress.lastLessonId ?? flatLessons[0]?.id ?? "";
   const [activeId, setActiveId] = useState(initialLessonId);
@@ -117,6 +122,18 @@ const CoursePage = () => {
           <p className="mt-3 text-muted-foreground">
             ייתכן שהקורס הוסר או שהקישור שגוי.
           </p>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!authReady) {
+    return (
+      <div dir="rtl" className="min-h-screen bg-background">
+        <Header />
+        <main className="container py-20 text-center text-muted-foreground">
+          טוען...
         </main>
         <Footer />
       </div>
