@@ -1,5 +1,18 @@
 import { supabase } from "@/integrations/supabase/client";
 
+export type QuizQuestionData = {
+  id: string;
+  question: string;
+  answers: string[];
+  correctAnswer: string;
+  correctFeedback?: string;
+  wrongFeedback?: string;
+};
+export type QuizData = {
+  title: string;
+  questions: QuizQuestionData[];
+};
+
 export type DbLesson = {
   id: string;
   title: string;
@@ -12,6 +25,7 @@ export type DbLesson = {
   chapterId: string;
   hasQuiz: boolean;
   isLocked: boolean;
+  quiz?: QuizData | null;
 };
 
 type Row = {
@@ -26,6 +40,7 @@ type Row = {
   chapter_id: string;
   has_quiz: boolean;
   is_locked: boolean;
+  quiz: QuizData | null;
 };
 
 const fromRow = (r: Row): DbLesson => ({
@@ -40,6 +55,7 @@ const fromRow = (r: Row): DbLesson => ({
   chapterId: r.chapter_id,
   hasQuiz: r.has_quiz,
   isLocked: r.is_locked,
+  quiz: r.quiz ?? null,
 });
 
 const toRow = (l: Partial<DbLesson>) => {
@@ -55,6 +71,7 @@ const toRow = (l: Partial<DbLesson>) => {
   if (l.chapterId !== undefined) row.chapter_id = l.chapterId;
   if (l.hasQuiz !== undefined) row.has_quiz = l.hasQuiz;
   if (l.isLocked !== undefined) row.is_locked = l.isLocked;
+  if (l.quiz !== undefined) row.quiz = l.quiz;
   return row;
 };
 

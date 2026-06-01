@@ -12,6 +12,7 @@ import {
 import * as coursesDb from "@/lib/db/coursesDb";
 import * as chaptersDb from "@/lib/db/chaptersDb";
 import * as lessonsDb from "@/lib/db/lessonsDb";
+import type { QuizData } from "@/lib/db/lessonsDb";
 import * as usersDb from "@/lib/db/usersDb";
 import * as assignmentsDb from "@/lib/db/assignmentsDb";
 import * as lessonAssignmentsDb from "@/lib/db/lessonAssignmentsDb";
@@ -32,7 +33,7 @@ export type AdminLesson = {
   courseId: string;
   chapterId: string;
   hasQuiz: boolean;
-  quiz: null;
+  quiz: QuizData | null;
   isLocked: boolean;
 };
 

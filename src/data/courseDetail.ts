@@ -14,6 +14,8 @@ export type QuizQuestion = {
   question: string;
   answers: string[];
   correctAnswer: string;
+  correctFeedback?: string;
+  wrongFeedback?: string;
 };
 export type Quiz = {
   title: string;
