@@ -30,15 +30,6 @@ import {
   type CourseRow,
 } from "@/lib/courseRows";
 
-const readProgress = (userId: string, courseId: string): CourseProgress | null => {
-  try {
-    const raw = localStorage.getItem(`progress:${userId}:${courseId}`);
-    return raw ? (JSON.parse(raw) as CourseProgress) : null;
-  } catch {
-    return null;
-  }
-};
-
 const Profile = () => {
   useAdminStoreHydration();
   const { user, loading: authLoading, uploadAvatar, removeAvatar } = useAuth();
