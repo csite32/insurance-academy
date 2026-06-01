@@ -29,6 +29,14 @@ const toLesson = (l: AdminLesson): Lesson => {
   const attachments: Attachment[] = (l.attachments ?? []).map((raw, i) =>
     parseAttachment(raw, l.id, i)
   );
+  const quiz =
+    l.quiz && Array.isArray(l.quiz.questions) && l.quiz.questions.length > 0
+      ? {
+          title: l.quiz.title || "חידון השיעור",
+          isUnlockedAfterLessonCompletion: true,
+          questions: l.quiz.questions,
+        }
+      : undefined;
   return {
     id: l.id,
     order: l.order,
@@ -39,6 +47,7 @@ const toLesson = (l: AdminLesson): Lesson => {
       "תוכן השיעור יתעדכן בקרוב על ידי מערכת הניהול.",
     videoUrl: l.videoUrl,
     attachments,
+    quiz,
   };
 };
 
