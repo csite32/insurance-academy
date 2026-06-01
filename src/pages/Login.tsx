@@ -90,11 +90,6 @@ const Login = () => {
             </Button>
           </form>
         </div>
-
-        <div className="mt-6 text-center text-xs text-muted-foreground space-y-1">
-          <p>​</p>
-          <p>​</p>
-        </div>
       </div>
     </div>
   );
