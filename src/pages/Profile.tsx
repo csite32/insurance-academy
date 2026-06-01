@@ -438,7 +438,11 @@ const Profile = () => {
             <span className="text-sm text-muted-foreground">{rows.length} קורסים</span>
           </div>
 
-          {rows.length === 0 ? (
+          {progressLoading ? (
+            <div className="rounded-3xl border border-dashed border-border bg-card p-8 text-center text-muted-foreground">
+              טוען נתוני התקדמות...
+            </div>
+          ) : rows.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-border bg-card p-8 text-center text-muted-foreground">
               לא משויכים אליך כרגע קורסים.
             </div>
