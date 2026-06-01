@@ -40,7 +40,7 @@ type Row = {
   chapter_id: string;
   has_quiz: boolean;
   is_locked: boolean;
-  quiz: QuizData | null;
+  quiz: unknown;
 };
 
 const fromRow = (r: Row): DbLesson => ({
@@ -55,7 +55,7 @@ const fromRow = (r: Row): DbLesson => ({
   chapterId: r.chapter_id,
   hasQuiz: r.has_quiz,
   isLocked: r.is_locked,
-  quiz: r.quiz ?? null,
+  quiz: (r.quiz as QuizData | null) ?? null,
 });
 
 const toRow = (l: Partial<DbLesson>) => {
