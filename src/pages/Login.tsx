@@ -1,18 +1,36 @@
-import { useState, FormEvent } from "react";
+import { useState, FormEvent, useEffect } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import logo from "@/assets/logo.png";
+
+const REMEMBER_KEY = "auth.rememberedCredentials";
 
 const Login = () => {
   const { user, login } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [remember, setRemember] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(REMEMBER_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw) as { email?: string; password?: string };
+        if (saved.email) setEmail(saved.email);
+        if (saved.password) setPassword(saved.password);
+        setRemember(true);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   if (user) return <Navigate to="/" replace />;
 
@@ -25,6 +43,15 @@ const Login = () => {
     if (!res.ok) {
       setError(res.error ?? "שגיאה בהתחברות");
       return;
+    }
+    try {
+      if (remember) {
+        localStorage.setItem(REMEMBER_KEY, JSON.stringify({ email, password }));
+      } else {
+        localStorage.removeItem(REMEMBER_KEY);
+      }
+    } catch {
+      /* ignore */
     }
     navigate("/", { replace: true });
   };
@@ -79,6 +106,17 @@ const Login = () => {
                 {error}
               </div>
             )}
+
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="remember"
+                checked={remember}
+                onCheckedChange={(v) => setRemember(v === true)}
+              />
+              <Label htmlFor="remember" className="text-sm font-normal cursor-pointer">
+                זכור סיסמה
+              </Label>
+            </div>
 
             <Button
               type="submit"
