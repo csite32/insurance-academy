@@ -7,7 +7,6 @@ import { useAuth } from "@/contexts/AuthContext";
 const navItems = [
   { label: "עמוד בית", href: "/", active: true },
   { label: "הקורסים שלי", href: "#courses" },
-  { label: "צפייה בעמוד קורס לדוגמה", href: "/course/course-1" },
   { label: "אזור אישי", href: "/profile" },
 ];
 
