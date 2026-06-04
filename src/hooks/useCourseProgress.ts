@@ -3,7 +3,7 @@ import {
   listProgressForUserCourse,
   markLessonCompleted as cloudMarkCompleted,
   unmarkLessonCompleted as cloudUnmarkCompleted,
-  getLastViewed as cloudGetLastViewed,
+  getLastViewedForCourse as cloudGetLastViewedForCourse,
   setLastViewed as cloudSetLastViewed,
 } from "@/lib/db/progressDb";
 
@@ -69,11 +69,22 @@ export function useCourseProgress(userId: string, courseId: string, totalLessons
     let cancelled = false;
     (async () => {
       try {
-        const [rows, lv] = await Promise.all([
+        const [rowsRes, lvRes] = await Promise.allSettled([
           listProgressForUserCourse(userId, courseId),
-          cloudGetLastViewed(userId),
+          cloudGetLastViewedForCourse(userId, courseId),
         ]);
         if (cancelled) return;
+
+        if (rowsRes.status === "rejected") {
+          console.error("[useCourseProgress] listProgressForUserCourse failed", rowsRes.reason);
+          return;
+        }
+        if (lvRes.status === "rejected") {
+          console.error("[useCourseProgress] getLastViewedForCourse failed", lvRes.reason);
+        }
+
+        const rows = rowsRes.value;
+        const lv = lvRes.status === "fulfilled" ? lvRes.value : null;
 
         const cloudCompleted = rows.map((r) => r.lessonId);
         const cloudLastLesson =
