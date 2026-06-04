@@ -1,4 +1,4 @@
-import { Bell, ChevronDown, LogOut, UserCircle2, Menu, X, ShieldCheck } from "lucide-react";
+import { Bell, LogOut, UserCircle2, Menu, X, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import logo from "@/assets/logo.png";
@@ -71,7 +71,6 @@ const Header = () => {
               <UserCircle2 className="h-7 w-7 text-muted-foreground" strokeWidth={1.5} />
             )}
             <span className="text-sm font-medium">שלום, {displayName}</span>
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
           </Link>
           <button
             aria-label="התראות"
