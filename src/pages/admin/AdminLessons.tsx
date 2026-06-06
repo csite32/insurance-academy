@@ -196,6 +196,41 @@ const AdminLessons = () => {
     [lessons, chapters, filterCourseId]
   );
 
+  // Group lessons by chapter (chapters in order) for per-chapter DnD.
+  const lessonGroups = useMemo(() => {
+    return courseChapters.map((ch) => ({
+      chapter: ch,
+      lessons: lessons
+        .filter((l) => l.chapterId === ch.id)
+        .sort((a, b) => a.order - b.order),
+    }));
+  }, [courseChapters, lessons]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const activeId = String(active.id);
+    const overId = String(over.id);
+    const activeLesson = lessons.find((l) => l.id === activeId);
+    const overLesson = lessons.find((l) => l.id === overId);
+    if (!activeLesson || !overLesson) return;
+    // Restrict drags to within the same chapter.
+    if (activeLesson.chapterId !== overLesson.chapterId) return;
+    const sameChapter = lessons
+      .filter((l) => l.chapterId === activeLesson.chapterId)
+      .sort((a, b) => a.order - b.order);
+    const oldIndex = sameChapter.findIndex((l) => l.id === activeId);
+    const newIndex = sameChapter.findIndex((l) => l.id === overId);
+    if (oldIndex < 0 || newIndex < 0) return;
+    const reordered = arrayMove(sameChapter, oldIndex, newIndex).map((l) => l.id);
+    void adminStore.reorderLessons(activeLesson.chapterId, reordered);
+  };
+
   const formChapters = chapters
     .filter((c) => c.courseId === form.courseId)
     .sort((a, b) => a.order - b.order);
