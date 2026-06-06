@@ -70,12 +70,12 @@ const LessonContent = ({
 
     <div className="flex flex-wrap items-center gap-3 pt-2">
       <Button
-        variant={isCompleted ? "secondary" : "default"}
+        variant={isCompleted ? "default" : "secondary"}
         onClick={onToggleComplete}
         className="gap-2"
       >
         <Check className="h-4 w-4" />
-        {isCompleted ? "סומן כהושלם" : "סמן כהושלם"}
+        {isCompleted ? "הושלם" : "סמן כהושלם"}
       </Button>
 
       <div className="ms-auto flex items-center gap-2">
