@@ -113,7 +113,8 @@ export async function createLesson(
   let order = input.order;
   if (order === undefined) {
     const existing = await listLessonsForChapter(input.chapterId);
-    order = existing.length + 1;
+    const maxOrder = existing.reduce((m, l) => (l.order > m ? l.order : m), 0);
+    order = maxOrder + 1;
   }
   const id = input.id ?? uid("l");
   const payload: DbLesson = {
@@ -178,6 +179,21 @@ export async function moveLesson(
       .update({ order: lesson.order } as never)
       .eq("id", swap.id),
   ]);
+}
+
+export async function reorderLessons(
+  chapterId: string,
+  orderedIds: string[]
+): Promise<void> {
+  await Promise.all(
+    orderedIds.map((id, idx) =>
+      supabase
+        .from("lessons")
+        .update({ order: idx + 1 } as never)
+        .eq("id", id)
+        .eq("chapter_id", chapterId)
+    )
+  );
 }
 
 export function subscribeLessons(onChange: () => void) {
