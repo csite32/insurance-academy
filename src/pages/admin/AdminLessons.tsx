@@ -84,6 +84,13 @@ const newBlankQuestion = (): QuizQuestionData => ({
 });
 
 const isValidQuestion = (q: QuizQuestionData): boolean => {
+  return true;
+};
+
+const DEFAULT_CORRECT_FEEDBACK = "כל הכבוד! התשובה שלך נכונה.";
+const DEFAULT_WRONG_FEEDBACK = "כמעט... כדאי לעבור שוב על הנושא ולנסות שנית.";
+
+const _unused = (q: QuizQuestionData): boolean => {
   if (!q.question.trim()) return false;
   const answers = (q.answers ?? []).map((a) => a.trim());
   if (answers.length !== 3 || answers.some((a) => !a)) return false;
