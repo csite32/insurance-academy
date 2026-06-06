@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus, Pencil, Trash2, ArrowUp, ArrowDown } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
@@ -24,6 +24,17 @@ const AdminChapters = () => {
   const chapters = useAdminStore((s) => s.chapters);
   const lessons = useAdminStore((s) => s.lessons);
   const [courseId, setCourseId] = useState(courses[0]?.id ?? "");
+
+  // Sync selected course with hydrated courses list. If current value is empty
+  // or no longer exists (e.g. after logout/login rehydration), fall back to
+  // the first available course so the table doesn't render empty.
+  useEffect(() => {
+    if (courses.length === 0) return;
+    const exists = courses.some((c) => c.id === courseId);
+    if (!courseId || !exists) {
+      setCourseId(courses[0].id);
+    }
+  }, [courses, courseId]);
   const [editing, setEditing] = useState<AdminChapter | null>(null);
   const [creating, setCreating] = useState(false);
   const [title, setTitle] = useState("");

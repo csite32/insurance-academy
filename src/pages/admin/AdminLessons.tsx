@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Pencil, Trash2, ArrowUp, ArrowDown, X, Upload, Loader2 } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
@@ -100,6 +100,17 @@ const AdminLessons = () => {
   const lessons = useAdminStore((s) => s.lessons);
 
   const [filterCourseId, setFilterCourseId] = useState(courses[0]?.id ?? "");
+
+  // Sync the course filter with the hydrated courses list. After
+  // logout/login the store rehydrates async, so the initial useState value
+  // may be "" or a stale id — fall back to the first available course.
+  useEffect(() => {
+    if (courses.length === 0) return;
+    const exists = courses.some((c) => c.id === filterCourseId);
+    if (!filterCourseId || !exists) {
+      setFilterCourseId(courses[0].id);
+    }
+  }, [courses, filterCourseId]);
   const [editing, setEditing] = useState<AdminLesson | null>(null);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState<FormState>({
