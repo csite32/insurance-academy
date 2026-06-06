@@ -14,7 +14,7 @@ const CourseCard = ({ course }: { course: Course }) => {
       }`}
     >
       {course.accessTag === "selected" && (
-        <span className="absolute right-4 top-4 rounded-full bg-accent/15 px-3 py-1 text-[11px] font-semibold text-accent-foreground ring-1 ring-accent/30">
+        <span className="absolute right-4 top-4 rounded-full bg-accent/40 px-3 py-1 text-[11px] font-semibold text-foreground ring-1 ring-accent/60">
           שיעורים נבחרים
         </span>
       )}
