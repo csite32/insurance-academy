@@ -156,17 +156,10 @@ const Quiz = ({ quiz, lessonCompleted }: Props) => {
           )}
         >
           {isCorrect ? (
-            <span>{q.correctFeedback?.trim() || "תשובה נכונה! 🎉"}</span>
+            <span>{q.correctFeedback?.trim() || "כל הכבוד! התשובה שלך נכונה."}</span>
           ) : (
             <span>
-              {q.wrongFeedback?.trim() ? (
-                q.wrongFeedback
-              ) : (
-                <>
-                  תשובה שגויה. התשובה הנכונה:{" "}
-                  <span className="font-bold">{q.correctAnswer}</span>
-                </>
-              )}
+              {q.wrongFeedback?.trim() || "כמעט... כדאי לעבור שוב על הנושא ולנסות שנית."}
             </span>
           )}
         </div>
