@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Plus, Pencil, Trash2, ArrowUp, ArrowDown, X, Upload, Loader2, GripVertical } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import {
@@ -134,7 +134,7 @@ const SortableLessonRow = ({
 }: SortableLessonRowProps) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: lesson.id });
-  const style: React.CSSProperties = {
+  const style: CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.6 : 1,
