@@ -429,6 +429,10 @@ export const adminStore = {
     await lessonsDb.moveLesson(id, direction);
     await refreshLessons();
   },
+  async reorderLessons(chapterId: string, orderedIds: string[]) {
+    await lessonsDb.reorderLessons(chapterId, orderedIds);
+    await refreshLessons();
+  },
 
   // ----- users -----
   async createUser(input: Omit<AdminUser, "id">) {
