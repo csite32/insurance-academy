@@ -1,6 +1,23 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Pencil, Trash2, ArrowUp, ArrowDown, X, Upload, Loader2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { Plus, Pencil, Trash2, ArrowUp, ArrowDown, X, Upload, Loader2, GripVertical } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import {
   adminStore,
@@ -94,6 +111,100 @@ const isValidQuestion = (q: QuizQuestionData): boolean => {
   return answers.includes(q.correctAnswer.trim());
 };
 
+type SortableLessonRowProps = {
+  lesson: AdminLesson;
+  chapterTitle: string;
+  isFirst: boolean;
+  isLast: boolean;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+};
+
+const SortableLessonRow = ({
+  lesson,
+  chapterTitle,
+  isFirst,
+  isLast,
+  onMoveUp,
+  onMoveDown,
+  onEdit,
+  onDelete,
+}: SortableLessonRowProps) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: lesson.id });
+  const style: CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+    background: isDragging ? "hsl(var(--muted))" : undefined,
+  };
+  return (
+    <tr ref={setNodeRef} style={style} className="border-t border-border">
+      <td className="p-3 font-bold text-muted-foreground">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
+            aria-label="גרור לסידור"
+            {...attributes}
+            {...listeners}
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+          <span>{lesson.order}</span>
+        </div>
+      </td>
+      <td className="p-3 font-semibold">{lesson.title}</td>
+      <td className="p-3 text-muted-foreground">{chapterTitle || "—"}</td>
+      <td className="p-3">
+        {lesson.hasQuiz ? (
+          <span className="rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[11px] font-semibold">
+            כן
+          </span>
+        ) : (
+          <span className="text-muted-foreground text-xs">לא</span>
+        )}
+      </td>
+      <td className="p-3">
+        <div className="flex gap-1">
+          <button
+            onClick={onMoveUp}
+            disabled={isFirst}
+            className="rounded-lg p-2 hover:bg-muted disabled:opacity-40 transition"
+            aria-label="למעלה"
+          >
+            <ArrowUp className="h-4 w-4" />
+          </button>
+          <button
+            onClick={onMoveDown}
+            disabled={isLast}
+            className="rounded-lg p-2 hover:bg-muted disabled:opacity-40 transition"
+            aria-label="למטה"
+          >
+            <ArrowDown className="h-4 w-4" />
+          </button>
+          <button
+            onClick={onEdit}
+            className="rounded-lg p-2 hover:bg-muted hover:text-primary transition"
+            aria-label="עריכה"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+          <button
+            onClick={onDelete}
+            className="rounded-lg p-2 hover:bg-destructive/10 hover:text-destructive transition"
+            aria-label="מחיקה"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+};
+
 const AdminLessons = () => {
   const courses = useAdminStore((s) => s.courses);
   const chapters = useAdminStore((s) => s.chapters);
@@ -178,6 +289,41 @@ const AdminLessons = () => {
         }),
     [lessons, chapters, filterCourseId]
   );
+
+  // Group lessons by chapter (chapters in order) for per-chapter DnD.
+  const lessonGroups = useMemo(() => {
+    return courseChapters.map((ch) => ({
+      chapter: ch,
+      lessons: lessons
+        .filter((l) => l.chapterId === ch.id)
+        .sort((a, b) => a.order - b.order),
+    }));
+  }, [courseChapters, lessons]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const activeId = String(active.id);
+    const overId = String(over.id);
+    const activeLesson = lessons.find((l) => l.id === activeId);
+    const overLesson = lessons.find((l) => l.id === overId);
+    if (!activeLesson || !overLesson) return;
+    // Restrict drags to within the same chapter.
+    if (activeLesson.chapterId !== overLesson.chapterId) return;
+    const sameChapter = lessons
+      .filter((l) => l.chapterId === activeLesson.chapterId)
+      .sort((a, b) => a.order - b.order);
+    const oldIndex = sameChapter.findIndex((l) => l.id === activeId);
+    const newIndex = sameChapter.findIndex((l) => l.id === overId);
+    if (oldIndex < 0 || newIndex < 0) return;
+    const reordered = arrayMove(sameChapter, oldIndex, newIndex).map((l) => l.id);
+    void adminStore.reorderLessons(activeLesson.chapterId, reordered);
+  };
 
   const formChapters = chapters
     .filter((c) => c.courseId === form.courseId)
@@ -336,10 +482,11 @@ const AdminLessons = () => {
 
       <div className="rounded-2xl border border-border bg-card shadow-card overflow-hidden">
         <div className="overflow-x-auto">
+         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <table className="w-full text-right text-sm">
             <thead className="bg-muted/60 text-xs text-muted-foreground">
               <tr>
-                <th className="p-3 font-semibold w-16">סדר</th>
+                <th className="p-3 font-semibold w-20">סדר</th>
                 <th className="p-3 font-semibold">שם השיעור</th>
                 <th className="p-3 font-semibold">פרק</th>
                 <th className="p-3 font-semibold">חידון</th>
@@ -354,65 +501,30 @@ const AdminLessons = () => {
                   </td>
                 </tr>
               )}
-              {courseLessons.map((l) => {
-                const chapter = chapters.find((c) => c.id === l.chapterId);
-                const sameChapter = lessons
-                  .filter((x) => x.chapterId === l.chapterId)
-                  .sort((a, b) => a.order - b.order);
-                const idx = sameChapter.findIndex((x) => x.id === l.id);
-                return (
-                  <tr key={l.id} className="border-t border-border">
-                    <td className="p-3 font-bold text-muted-foreground">{l.order}</td>
-                    <td className="p-3 font-semibold">{l.title}</td>
-                    <td className="p-3 text-muted-foreground">{chapter?.title ?? "—"}</td>
-                    <td className="p-3">
-                      {l.hasQuiz ? (
-                        <span className="rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[11px] font-semibold">
-                          כן
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">לא</span>
-                      )}
-                    </td>
-                    <td className="p-3">
-                      <div className="flex gap-1">
-                        <button
-                          onClick={() => adminStore.moveLesson(l.id, "up")}
-                          disabled={idx === 0}
-                          className="rounded-lg p-2 hover:bg-muted disabled:opacity-40 transition"
-                          aria-label="למעלה"
-                        >
-                          <ArrowUp className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => adminStore.moveLesson(l.id, "down")}
-                          disabled={idx === sameChapter.length - 1}
-                          className="rounded-lg p-2 hover:bg-muted disabled:opacity-40 transition"
-                          aria-label="למטה"
-                        >
-                          <ArrowDown className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => openEdit(l)}
-                          className="rounded-lg p-2 hover:bg-muted hover:text-primary transition"
-                          aria-label="עריכה"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => setToDelete(l)}
-                          className="rounded-lg p-2 hover:bg-destructive/10 hover:text-destructive transition"
-                          aria-label="מחיקה"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+              {lessonGroups.map((group) => (
+                <SortableContext
+                  key={group.chapter.id}
+                  items={group.lessons.map((l) => l.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {group.lessons.map((l, idx) => (
+                    <SortableLessonRow
+                      key={l.id}
+                      lesson={l}
+                      chapterTitle={group.chapter.title}
+                      isFirst={idx === 0}
+                      isLast={idx === group.lessons.length - 1}
+                      onMoveUp={() => adminStore.moveLesson(l.id, "up")}
+                      onMoveDown={() => adminStore.moveLesson(l.id, "down")}
+                      onEdit={() => openEdit(l)}
+                      onDelete={() => setToDelete(l)}
+                    />
+                  ))}
+                </SortableContext>
+              ))}
             </tbody>
           </table>
+         </DndContext>
         </div>
       </div>
 
