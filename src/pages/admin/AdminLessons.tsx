@@ -1,6 +1,23 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Pencil, Trash2, ArrowUp, ArrowDown, X, Upload, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, ArrowUp, ArrowDown, X, Upload, Loader2, GripVertical } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import {
   adminStore,
