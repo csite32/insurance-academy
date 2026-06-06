@@ -79,8 +79,8 @@ const newBlankQuestion = (): QuizQuestionData => ({
   question: "",
   answers: ["", "", ""],
   correctAnswer: "",
-  correctFeedback: "",
-  wrongFeedback: "",
+  correctFeedback: DEFAULT_CORRECT_FEEDBACK,
+  wrongFeedback: DEFAULT_WRONG_FEEDBACK,
 });
 
 const isValidQuestion = (q: QuizQuestionData): boolean => {
