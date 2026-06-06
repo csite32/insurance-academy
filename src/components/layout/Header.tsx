@@ -1,13 +1,13 @@
 import { LogOut, UserCircle2, Menu, X, ShieldCheck } from "lucide-react";
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import logo from "@/assets/logo.png";
 import { useAuth } from "@/contexts/AuthContext";
 
 const navItems = [
-  { label: "עמוד בית", href: "/", active: true },
-  { label: "הקורסים שלי", href: "#courses" },
-  { label: "אזור אישי", href: "/profile" },
+  { label: "עמוד בית", href: "/", activePattern: /^\/$/ },
+  { label: "הקורסים שלי", href: "#courses", activePattern: /^\/course/ },
+  { label: "אזור אישי", href: "/profile", activePattern: /^\/profile$/ },
 ];
 
 const Header = () => {
