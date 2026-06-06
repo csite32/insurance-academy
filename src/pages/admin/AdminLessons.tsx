@@ -111,6 +111,100 @@ const isValidQuestion = (q: QuizQuestionData): boolean => {
   return answers.includes(q.correctAnswer.trim());
 };
 
+type SortableLessonRowProps = {
+  lesson: AdminLesson;
+  chapterTitle: string;
+  isFirst: boolean;
+  isLast: boolean;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+};
+
+const SortableLessonRow = ({
+  lesson,
+  chapterTitle,
+  isFirst,
+  isLast,
+  onMoveUp,
+  onMoveDown,
+  onEdit,
+  onDelete,
+}: SortableLessonRowProps) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: lesson.id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+    background: isDragging ? "hsl(var(--muted))" : undefined,
+  };
+  return (
+    <tr ref={setNodeRef} style={style} className="border-t border-border">
+      <td className="p-3 font-bold text-muted-foreground">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
+            aria-label="גרור לסידור"
+            {...attributes}
+            {...listeners}
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+          <span>{lesson.order}</span>
+        </div>
+      </td>
+      <td className="p-3 font-semibold">{lesson.title}</td>
+      <td className="p-3 text-muted-foreground">{chapterTitle || "—"}</td>
+      <td className="p-3">
+        {lesson.hasQuiz ? (
+          <span className="rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[11px] font-semibold">
+            כן
+          </span>
+        ) : (
+          <span className="text-muted-foreground text-xs">לא</span>
+        )}
+      </td>
+      <td className="p-3">
+        <div className="flex gap-1">
+          <button
+            onClick={onMoveUp}
+            disabled={isFirst}
+            className="rounded-lg p-2 hover:bg-muted disabled:opacity-40 transition"
+            aria-label="למעלה"
+          >
+            <ArrowUp className="h-4 w-4" />
+          </button>
+          <button
+            onClick={onMoveDown}
+            disabled={isLast}
+            className="rounded-lg p-2 hover:bg-muted disabled:opacity-40 transition"
+            aria-label="למטה"
+          >
+            <ArrowDown className="h-4 w-4" />
+          </button>
+          <button
+            onClick={onEdit}
+            className="rounded-lg p-2 hover:bg-muted hover:text-primary transition"
+            aria-label="עריכה"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+          <button
+            onClick={onDelete}
+            className="rounded-lg p-2 hover:bg-destructive/10 hover:text-destructive transition"
+            aria-label="מחיקה"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+};
+
 const AdminLessons = () => {
   const courses = useAdminStore((s) => s.courses);
   const chapters = useAdminStore((s) => s.chapters);
