@@ -74,13 +74,16 @@ const inferTypeFromName = (name: string): AttachmentType => {
 const sanitizeFileName = (name: string) =>
   name.replace(/[^\w.\-]+/g, "_").slice(0, 120);
 
+const DEFAULT_CORRECT_FEEDBACK = "כל הכבוד! התשובה שלך נכונה.";
+const DEFAULT_WRONG_FEEDBACK = "כמעט... כדאי לעבור שוב על הנושא ולנסות שנית.";
+
 const newBlankQuestion = (): QuizQuestionData => ({
   id: `q-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
   question: "",
   answers: ["", "", ""],
   correctAnswer: "",
-  correctFeedback: "",
-  wrongFeedback: "",
+  correctFeedback: DEFAULT_CORRECT_FEEDBACK,
+  wrongFeedback: DEFAULT_WRONG_FEEDBACK,
 });
 
 const isValidQuestion = (q: QuizQuestionData): boolean => {
@@ -205,8 +208,8 @@ const AdminLessons = () => {
         question: q.question,
         answers: [q.answers[0] ?? "", q.answers[1] ?? "", q.answers[2] ?? ""],
         correctAnswer: q.correctAnswer,
-        correctFeedback: q.correctFeedback ?? "",
-        wrongFeedback: q.wrongFeedback ?? "",
+        correctFeedback: q.correctFeedback?.trim() ? q.correctFeedback : DEFAULT_CORRECT_FEEDBACK,
+        wrongFeedback: q.wrongFeedback?.trim() ? q.wrongFeedback : DEFAULT_WRONG_FEEDBACK,
       })),
     });
     setErrors({});
@@ -583,26 +586,34 @@ const AdminLessons = () => {
                       })}
                     </div>
                     <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                      <Textarea
-                        rows={2}
-                        value={q.correctFeedback ?? ""}
-                        placeholder="פידבק לתשובה נכונה"
-                        onChange={(e) => {
-                          const next = [...form.quizQuestions];
-                          next[qi] = { ...q, correctFeedback: e.target.value };
-                          setForm({ ...form, quizQuestions: next });
-                        }}
-                      />
-                      <Textarea
-                        rows={2}
-                        value={q.wrongFeedback ?? ""}
-                        placeholder="פידבק לתשובה שגויה"
-                        onChange={(e) => {
-                          const next = [...form.quizQuestions];
-                          next[qi] = { ...q, wrongFeedback: e.target.value };
-                          setForm({ ...form, quizQuestions: next });
-                        }}
-                      />
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-muted-foreground">
+                          פידבק לתשובה נכונה
+                        </label>
+                        <Textarea
+                          rows={2}
+                          value={q.correctFeedback ?? ""}
+                          onChange={(e) => {
+                            const next = [...form.quizQuestions];
+                            next[qi] = { ...q, correctFeedback: e.target.value };
+                            setForm({ ...form, quizQuestions: next });
+                          }}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-muted-foreground">
+                          פידבק לתשובה שגויה
+                        </label>
+                        <Textarea
+                          rows={2}
+                          value={q.wrongFeedback ?? ""}
+                          onChange={(e) => {
+                            const next = [...form.quizQuestions];
+                            next[qi] = { ...q, wrongFeedback: e.target.value };
+                            setForm({ ...form, quizQuestions: next });
+                          }}
+                        />
+                      </div>
                     </div>
                   </div>
                 ))}
