@@ -76,7 +76,6 @@ const StatsSection = () => {
       value: String(coursesCount),
       Icon: BookOpenText,
       tint: "primary" as const,
-      dot: { color: "hsl(var(--primary) / 0.35)", size: 10, gap: 18, offset: "0 0" },
     },
     {
       label: "שיעורים שהושלמו",
@@ -84,7 +83,6 @@ const StatsSection = () => {
       value: String(completedCount),
       Icon: Award,
       tint: "accent" as const,
-      dot: { color: "hsl(var(--accent) / 0.32)", size: 8, gap: 16, offset: "4px 6px" },
     },
     {
       label: "אחוז התקדמות כולל",
@@ -92,7 +90,6 @@ const StatsSection = () => {
       value: `${overall}%`,
       Icon: TrendingUp,
       tint: "primary" as const,
-      dot: { color: "hsl(var(--primary-glow) / 0.45)", size: 7, gap: 14, offset: "2px 2px" },
     },
   ];
 
