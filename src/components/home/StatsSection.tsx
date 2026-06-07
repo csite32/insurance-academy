@@ -114,7 +114,7 @@ const StatsSection = () => {
           return (
             <div
               key={label}
-              className="group relative flex h-full flex-col justify-between overflow-hidden rounded-[24px] border border-primary/20 bg-card p-7 shadow-card transition-all duration-500 hover:-translate-y-1 hover:border-primary/40 hover:shadow-card-hover"
+              className="group relative flex h-full flex-row items-center gap-6 overflow-hidden rounded-[24px] border border-primary/20 bg-card p-6 shadow-card transition-all duration-500 hover:-translate-y-1 hover:border-primary/40 hover:shadow-card-hover"
             >
               {/* Decorative organic blobs */}
               <div
@@ -130,54 +130,53 @@ const StatsSection = () => {
                 }`}
               />
               {/* Decorative dots */}
-              <div aria-hidden className="pointer-events-none absolute left-6 top-6 flex gap-1.5 opacity-50">
+              <div aria-hidden className="pointer-events-none absolute left-4 top-4 flex gap-1.5 opacity-50">
                 <span className="h-1 w-1 rounded-full bg-primary/60" />
                 <span className="h-1 w-1 rounded-full bg-accent/60" />
                 <span className="h-1 w-1 rounded-full bg-primary/30" />
               </div>
               {/* Decorative thin line */}
-              <div aria-hidden className="pointer-events-none absolute bottom-5 left-6 right-6 h-px bg-gradient-to-l from-transparent via-primary/20 to-transparent" />
+              <div aria-hidden className="pointer-events-none absolute bottom-4 left-4 right-4 h-px bg-gradient-to-l from-transparent via-primary/20 to-transparent" />
 
-              <div className="relative flex items-start justify-between gap-4">
-                {/* Layered glass icon cluster */}
-                <div className="relative flex h-20 w-20 shrink-0 items-center justify-center">
-                  <span
-                    aria-hidden
-                    className={`absolute inset-0 rounded-full backdrop-blur-md ${
-                      isAccent
-                        ? "bg-gradient-to-br from-accent/30 to-accent-light/20"
-                        : "bg-gradient-to-br from-primary/30 to-primary-glow/20"
-                    }`}
-                  />
-                  <span
-                    aria-hidden
-                    className={`absolute -right-2 -top-2 h-10 w-10 rounded-full border ${
-                      isAccent ? "border-primary/30 bg-primary/10" : "border-accent/30 bg-accent/10"
-                    } backdrop-blur-sm`}
-                  />
-                  <span
-                    aria-hidden
-                    className={`absolute -bottom-1 -left-1 h-7 w-7 rounded-full ${
-                      isAccent ? "bg-accent-light/30" : "bg-primary-glow/30"
-                    } blur-[2px]`}
-                  />
-                  <span
-                    className={`relative flex h-12 w-12 items-center justify-center rounded-full shadow-sm ${
-                      isAccent
-                        ? "bg-gradient-to-br from-accent to-accent-light"
-                        : "bg-gradient-primary"
-                    }`}
-                  >
-                    <Icon className="h-6 w-6 text-primary-foreground" strokeWidth={1.9} />
-                  </span>
-                </div>
+              {/* Layered glass icon cluster - LEFT */}
+              <div className="relative flex h-20 w-20 shrink-0 items-center justify-center">
+                <span
+                  aria-hidden
+                  className={`absolute inset-0 rounded-full backdrop-blur-md ${
+                    isAccent
+                      ? "bg-gradient-to-br from-accent/30 to-accent-light/20"
+                      : "bg-gradient-to-br from-primary/30 to-primary-glow/20"
+                  }`}
+                />
+                <span
+                  aria-hidden
+                  className={`absolute -right-2 -top-2 h-10 w-10 rounded-full border ${
+                    isAccent ? "border-primary/30 bg-primary/10" : "border-accent/30 bg-accent/10"
+                  } backdrop-blur-sm`}
+                />
+                <span
+                  aria-hidden
+                  className={`absolute -bottom-1 -left-1 h-7 w-7 rounded-full ${
+                    isAccent ? "bg-accent-light/30" : "bg-primary-glow/30"
+                  } blur-[2px]`}
+                />
+                <span
+                  className={`relative flex h-12 w-12 items-center justify-center rounded-full shadow-sm ${
+                    isAccent
+                      ? "bg-gradient-to-br from-accent to-accent-light"
+                      : "bg-gradient-primary"
+                  }`}
+                >
+                  <Icon className="h-6 w-6 text-primary-foreground" strokeWidth={1.9} />
+                </span>
               </div>
 
-              <div className="relative mt-6 flex flex-col">
-                <span className="text-5xl font-bold leading-none tracking-tight text-foreground sm:text-[3.25rem]">
+              {/* Text content - RIGHT */}
+              <div className="relative flex flex-col items-start text-right">
+                <span className="text-4xl font-bold leading-none tracking-tight text-foreground sm:text-[2.75rem]">
                   {value}
                 </span>
-                <span className="mt-3 text-base font-semibold text-foreground/90">
+                <span className="mt-2 text-base font-semibold text-foreground/90">
                   {label}
                 </span>
                 <span className="mt-1 text-xs text-muted-foreground">
