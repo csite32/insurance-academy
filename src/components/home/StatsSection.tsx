@@ -116,6 +116,19 @@ const StatsSection = () => {
               key={label}
               className="group relative flex h-full flex-col justify-between overflow-hidden rounded-[24px] border border-primary/20 bg-card p-7 shadow-card transition-all duration-500 hover:-translate-y-1 hover:border-primary/40 hover:shadow-card-hover"
             >
+              {/* Decorative organic blobs */}
+              <div
+                aria-hidden
+                className={`pointer-events-none absolute -left-10 -top-12 h-40 w-40 rounded-full blur-2xl transition-opacity duration-500 group-hover:opacity-80 ${
+                  isAccent ? "bg-accent/15" : "bg-primary/15"
+                }`}
+              />
+              <div
+                aria-hidden
+                className={`pointer-events-none absolute -bottom-16 -right-10 h-44 w-44 rounded-full blur-3xl transition-opacity duration-500 ${
+                  isAccent ? "bg-primary/10" : "bg-accent/10"
+                }`}
+              />
               {/* Decorative dots */}
               <div aria-hidden className="pointer-events-none absolute left-6 top-6 flex gap-1.5 opacity-50">
                 <span className="h-1 w-1 rounded-full bg-primary/60" />
@@ -125,33 +138,51 @@ const StatsSection = () => {
               {/* Decorative thin line */}
               <div aria-hidden className="pointer-events-none absolute bottom-5 left-6 right-6 h-px bg-gradient-to-l from-transparent via-primary/20 to-transparent" />
 
-              <div className="relative flex h-full flex-row-reverse items-center gap-5">
-                {/* Icon cluster (left side in RTL) */}
-                <div className="relative flex h-24 w-24 shrink-0 items-center justify-center">
-                  {/* Solid icon medallion */}
+              <div className="relative flex items-start justify-between gap-4">
+                {/* Layered glass icon cluster */}
+                <div className="relative flex h-20 w-20 shrink-0 items-center justify-center">
                   <span
-                    className={`relative flex h-14 w-14 items-center justify-center rounded-full shadow-sm ring-4 ring-card ${
+                    aria-hidden
+                    className={`absolute inset-0 rounded-full backdrop-blur-md ${
+                      isAccent
+                        ? "bg-gradient-to-br from-accent/30 to-accent-light/20"
+                        : "bg-gradient-to-br from-primary/30 to-primary-glow/20"
+                    }`}
+                  />
+                  <span
+                    aria-hidden
+                    className={`absolute -right-2 -top-2 h-10 w-10 rounded-full border ${
+                      isAccent ? "border-primary/30 bg-primary/10" : "border-accent/30 bg-accent/10"
+                    } backdrop-blur-sm`}
+                  />
+                  <span
+                    aria-hidden
+                    className={`absolute -bottom-1 -left-1 h-7 w-7 rounded-full ${
+                      isAccent ? "bg-accent-light/30" : "bg-primary-glow/30"
+                    } blur-[2px]`}
+                  />
+                  <span
+                    className={`relative flex h-12 w-12 items-center justify-center rounded-full shadow-sm ${
                       isAccent
                         ? "bg-gradient-to-br from-accent to-accent-light"
                         : "bg-gradient-primary"
                     }`}
                   >
-                    <Icon className="h-7 w-7 text-primary-foreground" strokeWidth={1.9} />
+                    <Icon className="h-6 w-6 text-primary-foreground" strokeWidth={1.9} />
                   </span>
                 </div>
+              </div>
 
-                {/* Text block (right side in RTL) */}
-                <div className="relative flex min-w-0 flex-1 flex-col text-right">
-                  <span className="text-5xl font-bold leading-none tracking-tight text-foreground sm:text-[3.25rem]">
-                    {value}
-                  </span>
-                  <span className="mt-3 text-base font-semibold text-foreground/90">
-                    {label}
-                  </span>
-                  <span className="mt-1 text-xs text-muted-foreground">
-                    {sub}
-                  </span>
-                </div>
+              <div className="relative mt-6 flex flex-col">
+                <span className="text-5xl font-bold leading-none tracking-tight text-foreground sm:text-[3.25rem]">
+                  {value}
+                </span>
+                <span className="mt-3 text-base font-semibold text-foreground/90">
+                  {label}
+                </span>
+                <span className="mt-1 text-xs text-muted-foreground">
+                  {sub}
+                </span>
               </div>
             </div>
           );
