@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { BookOpen, CheckCircle2, TrendingUp } from "lucide-react";
+import { BookOpenText, Award, TrendingUp } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdminStore, useAdminStoreHydration } from "@/data/adminStore";
 import { computeUserCourseRows } from "@/lib/courseRows";
@@ -70,28 +70,123 @@ const StatsSection = () => {
   }, [user, adminCourses, adminLessons, completedByCourse, dbLoaded]);
 
   const stats = [
-    { label: "קורסים פעילים", value: String(coursesCount), Icon: BookOpen },
-    { label: "שיעורים שהושלמו", value: String(completedCount), Icon: CheckCircle2 },
-    { label: "אחוז התקדמות כולל", value: `${overall}%`, Icon: TrendingUp },
+    {
+      label: "קורסים פעילים",
+      sub: "סה״כ הקורסים שלך באקדמיה",
+      value: String(coursesCount),
+      Icon: BookOpenText,
+      tint: "primary" as const,
+    },
+    {
+      label: "שיעורים שהושלמו",
+      sub: "ההישגים שצברת עד כה",
+      value: String(completedCount),
+      Icon: Award,
+      tint: "accent" as const,
+    },
+    {
+      label: "אחוז התקדמות כולל",
+      sub: "הקצב הכללי של הלמידה שלך",
+      value: `${overall}%`,
+      Icon: TrendingUp,
+      tint: "primary" as const,
+    },
   ];
 
   return (
-    <section className="container pb-4">
-      <div className="grid gap-4 sm:grid-cols-3">
-        {stats.map(({ label, value, Icon }) => (
-        <div
-          key={label}
-          className="flex items-center gap-4 rounded-2xl border border-border bg-card p-5 shadow-card"
-        >
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10">
-            <Icon className="h-5 w-5 text-primary" strokeWidth={1.75} />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-2xl font-bold text-foreground">{value}</span>
-            <span className="text-sm text-muted-foreground">{label}</span>
-          </div>
-          </div>
-        ))}
+    <section className="container pb-6 pt-2">
+      <div className="mb-6 flex flex-col items-center text-center">
+        <div className="flex items-center gap-3">
+          <span className="h-px w-10 bg-primary" />
+          <h2 className="text-2xl font-bold text-foreground sm:text-3xl">
+            ההתקדמות האישית שלך
+          </h2>
+          <span className="h-px w-10 bg-primary" />
+        </div>
+        <p className="mt-2 text-sm text-muted-foreground sm:text-base">
+          תמונת מצב קצרה של הלמידה שלך באקדמיה
+        </p>
+      </div>
+
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {stats.map(({ label, sub, value, Icon, tint }) => {
+          const isAccent = tint === "accent";
+          return (
+            <div
+              key={label}
+              className="group relative flex h-full flex-col justify-between overflow-hidden rounded-[24px] border border-primary/20 bg-card p-7 shadow-card transition-all duration-500 hover:-translate-y-1 hover:border-primary/40 hover:shadow-card-hover"
+            >
+              {/* Decorative organic blobs */}
+              <div
+                aria-hidden
+                className={`pointer-events-none absolute -left-10 -top-12 h-40 w-40 rounded-full blur-2xl transition-opacity duration-500 group-hover:opacity-80 ${
+                  isAccent ? "bg-accent/15" : "bg-primary/15"
+                }`}
+              />
+              <div
+                aria-hidden
+                className={`pointer-events-none absolute -bottom-16 -right-10 h-44 w-44 rounded-full blur-3xl transition-opacity duration-500 ${
+                  isAccent ? "bg-primary/10" : "bg-accent/10"
+                }`}
+              />
+              {/* Decorative dots */}
+              <div aria-hidden className="pointer-events-none absolute left-6 top-6 flex gap-1.5 opacity-50">
+                <span className="h-1 w-1 rounded-full bg-primary/60" />
+                <span className="h-1 w-1 rounded-full bg-accent/60" />
+                <span className="h-1 w-1 rounded-full bg-primary/30" />
+              </div>
+              {/* Decorative thin line */}
+              <div aria-hidden className="pointer-events-none absolute bottom-5 left-6 right-6 h-px bg-gradient-to-l from-transparent via-primary/20 to-transparent" />
+
+              <div className="relative flex items-start justify-between gap-4">
+                {/* Layered glass icon cluster */}
+                <div className="relative flex h-20 w-20 shrink-0 items-center justify-center">
+                  <span
+                    aria-hidden
+                    className={`absolute inset-0 rounded-full backdrop-blur-md ${
+                      isAccent
+                        ? "bg-gradient-to-br from-accent/30 to-accent-light/20"
+                        : "bg-gradient-to-br from-primary/30 to-primary-glow/20"
+                    }`}
+                  />
+                  <span
+                    aria-hidden
+                    className={`absolute -right-2 -top-2 h-10 w-10 rounded-full border ${
+                      isAccent ? "border-primary/30 bg-primary/10" : "border-accent/30 bg-accent/10"
+                    } backdrop-blur-sm`}
+                  />
+                  <span
+                    aria-hidden
+                    className={`absolute -bottom-1 -left-1 h-7 w-7 rounded-full ${
+                      isAccent ? "bg-accent-light/30" : "bg-primary-glow/30"
+                    } blur-[2px]`}
+                  />
+                  <span
+                    className={`relative flex h-12 w-12 items-center justify-center rounded-full shadow-sm ${
+                      isAccent
+                        ? "bg-gradient-to-br from-accent to-accent-light"
+                        : "bg-gradient-primary"
+                    }`}
+                  >
+                    <Icon className="h-6 w-6 text-primary-foreground" strokeWidth={1.9} />
+                  </span>
+                </div>
+              </div>
+
+              <div className="relative mt-6 flex flex-col">
+                <span className="text-5xl font-bold leading-none tracking-tight text-foreground sm:text-[3.25rem]">
+                  {value}
+                </span>
+                <span className="mt-3 text-base font-semibold text-foreground/90">
+                  {label}
+                </span>
+                <span className="mt-1 text-xs text-muted-foreground">
+                  {sub}
+                </span>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </section>
   );
