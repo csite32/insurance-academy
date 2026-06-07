@@ -109,13 +109,8 @@ const StatsSection = () => {
       </div>
 
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {stats.map(({ label, sub, value, Icon, tint, dot }) => {
+        {stats.map(({ label, sub, value, Icon, tint }) => {
           const isAccent = tint === "accent";
-          const polkaStyle = {
-            backgroundImage: `radial-gradient(circle, ${dot.color} 22%, transparent 23%)`,
-            backgroundSize: `${dot.gap}px ${dot.gap}px`,
-            backgroundPosition: dot.offset,
-          } as const;
           return (
             <div
               key={label}
@@ -131,26 +126,8 @@ const StatsSection = () => {
               <div aria-hidden className="pointer-events-none absolute bottom-5 left-6 right-6 h-px bg-gradient-to-l from-transparent via-primary/20 to-transparent" />
 
               <div className="relative flex h-full flex-row-reverse items-center gap-5">
-                {/* Polka-dot icon cluster (left side in RTL) */}
+                {/* Icon cluster (left side in RTL) */}
                 <div className="relative flex h-24 w-24 shrink-0 items-center justify-center">
-                  {/* Large polka-dot disc */}
-                  <span
-                    aria-hidden
-                    style={polkaStyle}
-                    className={`absolute inset-0 rounded-full ${
-                      isAccent ? "bg-accent/10" : "bg-primary/10"
-                    }`}
-                  />
-                  {/* Small polka-dot disc overlapping */}
-                  <span
-                    aria-hidden
-                    style={polkaStyle}
-                    className={`absolute -left-3 -top-3 h-12 w-12 rounded-full border ${
-                      isAccent
-                        ? "border-primary/20 bg-primary/10"
-                        : "border-accent/20 bg-accent/10"
-                    }`}
-                  />
                   {/* Solid icon medallion */}
                   <span
                     className={`relative flex h-14 w-14 items-center justify-center rounded-full shadow-sm ring-4 ring-card ${
