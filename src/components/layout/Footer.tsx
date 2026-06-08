@@ -1,8 +1,30 @@
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 const Footer = () => {
   const location = useLocation();
   const navigate = useNavigate();
+
+  const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
+
+  const handleHomeClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    if (location.pathname === "/") {
+      scrollToTop();
+    } else {
+      navigate("/");
+      setTimeout(scrollToTop, 100);
+    }
+  };
+
+  const handleProfileClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    if (location.pathname === "/profile") {
+      scrollToTop();
+    } else {
+      navigate("/profile");
+      setTimeout(scrollToTop, 100);
+    }
+  };
 
   const handleCoursesClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
@@ -31,9 +53,9 @@ const Footer = () => {
         <div>
           <h4 className="text-lg font-bold text-accent-light">קישורים מהירים</h4>
           <ul className="mt-4 space-y-2 text-sm">
-            <li><Link to="/" className="hover:text-primary transition-colors">עמוד בית</Link></li>
+            <li><a href="/" onClick={handleHomeClick} className="hover:text-primary transition-colors">עמוד בית</a></li>
             <li><a href="#courses" onClick={handleCoursesClick} className="hover:text-primary transition-colors">הקורסים שלי</a></li>
-            <li><Link to="/profile" className="hover:text-primary transition-colors">אזור אישי</Link></li>
+            <li><a href="/profile" onClick={handleProfileClick} className="hover:text-primary transition-colors">אזור אישי</a></li>
           </ul>
         </div>
         <div>
