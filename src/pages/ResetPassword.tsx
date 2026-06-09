@@ -6,6 +6,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import logo from "@/assets/logo.png";
 
+const translateAuthError = (msg: string): string => {
+  const m = (msg || "").toLowerCase();
+  if (m.includes("weak") && m.includes("password"))
+    return "הסיסמה שבחרת חלשה וקלה לניחוש. יש לבחור סיסמה אחרת.";
+  if (m.includes("should be at least") || m.includes("at least 6"))
+    return "הסיסמה חייבת להכיל לפחות 6 תווים.";
+  if (m.includes("same as the old") || m.includes("same_password") || m.includes("different from the old"))
+    return "הסיסמה החדשה חייבת להיות שונה מהסיסמה הקיימת.";
+  if (m.includes("session") && (m.includes("expired") || m.includes("missing") || m.includes("invalid")))
+    return "פג תוקף קישור האיפוס. יש לבקש קישור חדש.";
+  if (m.includes("rate limit") || m.includes("too many"))
+    return "בוצעו יותר מדי ניסיונות. יש לנסות שוב מאוחר יותר.";
+  if (m.includes("network") || m.includes("failed to fetch"))
+    return "שגיאת רשת. יש לבדוק את החיבור ולנסות שוב.";
+  return "שגיאה בעדכון הסיסמה. יש לנסות שוב.";
+};
+
 const ResetPassword = () => {
   const navigate = useNavigate();
   const [ready, setReady] = useState(false);
@@ -60,7 +77,7 @@ const ResetPassword = () => {
     const { error: upErr } = await supabase.auth.updateUser({ password });
     setSubmitting(false);
     if (upErr) {
-      setError(upErr.message || "שגיאה בעדכון הסיסמה");
+      setError(translateAuthError(upErr.message));
       return;
     }
     setSuccess("הסיסמה עודכנה בהצלחה");
