@@ -150,12 +150,6 @@ const StatsSection = () => {
                 />
                 <span
                   aria-hidden
-                  className={`absolute -right-2 -top-2 h-10 w-10 rounded-full border ${
-                    isAccent ? "border-primary/30 bg-primary/10" : "border-accent/30 bg-accent/10"
-                  } backdrop-blur-sm`}
-                />
-                <span
-                  aria-hidden
                   className={`absolute -bottom-1 -left-1 h-7 w-7 rounded-full ${
                     isAccent ? "bg-accent-light/30" : "bg-primary-glow/30"
                   } blur-[2px]`}
