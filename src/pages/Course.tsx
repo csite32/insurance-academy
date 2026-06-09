@@ -66,7 +66,14 @@ const CoursePage = () => {
   const [activeId, setActiveId] = useState(initialLessonId);
 
   useEffect(() => {
-    if (activeId) setLastLesson(activeId);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+
+  useEffect(() => {
+    if (activeId) {
+      setLastLesson(activeId);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   }, [activeId, setLastLesson]);
 
   const activeIndex = flatLessons.findIndex((l) => l.id === activeId);
