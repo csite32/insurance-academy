@@ -1,6 +1,7 @@
 import { useState, FormEvent, useEffect } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +18,10 @@ const Login = () => {
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [mode, setMode] = useState<"login" | "forgot">("login");
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotSubmitting, setForgotSubmitting] = useState(false);
+  const [forgotMessage, setForgotMessage] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -56,6 +61,23 @@ const Login = () => {
     navigate("/", { replace: true });
   };
 
+  const onForgotSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setForgotMessage(null);
+    setForgotSubmitting(true);
+    try {
+      await supabase.auth.resetPasswordForEmail(forgotEmail.trim(), {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+    } catch {
+      /* ignore — never reveal */
+    }
+    setForgotSubmitting(false);
+    setForgotMessage(
+      "אם כתובת האימייל קיימת במערכת, נשלח אליה קישור לאיפוס סיסמה."
+    );
+  };
+
   return (
     <div
       dir="rtl"
@@ -71,10 +93,13 @@ const Login = () => {
               האקדמיה הדיגיטלית לביטוח
             </h1>
             <p className="text-muted-foreground text-sm md:text-base">
-              ברוכים הבאים, שנתחבר לאזור האישי?
+              {mode === "login"
+                ? "ברוכים הבאים, שנתחבר לאזור האישי?"
+                : "איפוס סיסמה"}
             </p>
           </div>
 
+          {mode === "login" ? (
           <form onSubmit={onSubmit} className="space-y-5">
             <div className="space-y-2">
               <Label htmlFor="email">אימייל</Label>
@@ -126,7 +151,62 @@ const Login = () => {
             >
               התחברות למערכת
             </Button>
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("forgot");
+                  setForgotEmail(email);
+                  setForgotMessage(null);
+                }}
+                className="text-sm text-primary hover:underline"
+              >
+                שכחת סיסמה?
+              </button>
+            </div>
           </form>
+          ) : (
+          <form onSubmit={onForgotSubmit} className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="forgot-email">אימייל</Label>
+              <Input
+                id="forgot-email"
+                type="email"
+                dir="ltr"
+                autoComplete="email"
+                value={forgotEmail}
+                onChange={(e) => setForgotEmail(e.target.value)}
+                required
+                className="text-right"
+              />
+            </div>
+            {forgotMessage && (
+              <div className="rounded-lg bg-primary/10 border border-primary/20 px-3 py-2 text-sm text-foreground text-center">
+                {forgotMessage}
+              </div>
+            )}
+            <Button
+              type="submit"
+              size="lg"
+              className="w-full text-base font-semibold"
+              disabled={forgotSubmitting}
+            >
+              שליחת קישור לאיפוס סיסמה
+            </Button>
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("login");
+                  setForgotMessage(null);
+                }}
+                className="text-sm text-primary hover:underline"
+              >
+                חזרה להתחברות
+              </button>
+            </div>
+          </form>
+          )}
         </div>
       </div>
     </div>
