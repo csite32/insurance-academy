@@ -242,12 +242,27 @@ const AdminCourses = () => {
               )}
             </div>
             <div className="space-y-1.5">
-              <Label>תמונת קורס (URL)</Label>
+              <Label>תמונת קורס</Label>
               <Input
-                value={form.image}
-                onChange={(e) => setForm({ ...form, image: e.target.value })}
-                placeholder="https://..."
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    setForm({ ...form, image: String(reader.result || "") });
+                  };
+                  reader.readAsDataURL(file);
+                }}
               />
+              {form.image && (
+                <img
+                  src={form.image}
+                  alt="תצוגה מקדימה"
+                  className="mt-2 h-24 w-24 object-cover rounded-md border border-border"
+                />
+              )}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
