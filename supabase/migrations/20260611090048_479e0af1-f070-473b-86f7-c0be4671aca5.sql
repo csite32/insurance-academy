@@ -1,0 +1,1 @@
+ALTER TABLE public.courses ADD COLUMN has_simulation boolean NOT NULL DEFAULT false;

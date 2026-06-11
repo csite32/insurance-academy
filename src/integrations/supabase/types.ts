@@ -76,6 +76,7 @@ export type Database = {
         Row: {
           created_at: string
           description: string
+          has_simulation: boolean
           icon_key: string
           id: string
           image: string
@@ -86,6 +87,7 @@ export type Database = {
         Insert: {
           created_at?: string
           description?: string
+          has_simulation?: boolean
           icon_key?: string
           id: string
           image?: string
@@ -96,6 +98,7 @@ export type Database = {
         Update: {
           created_at?: string
           description?: string
+          has_simulation?: boolean
           icon_key?: string
           id?: string
           image?: string
