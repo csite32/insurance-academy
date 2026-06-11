@@ -164,7 +164,11 @@ const AdminCourses = () => {
                     <td className="p-3">{chCount}</td>
                     <td className="p-3">{lCount}</td>
                     <td className="p-3">
-                      {c.learningMode === "sequential" ? "לפי סדר" : "חופשי"}
+                      {c.learningMode === "sequential"
+                        ? "לפי סדר שיעורים"
+                        : c.learningMode === "chapter_sequential"
+                        ? "לפי סדר פרקים"
+                        : "חופשי"}
                     </td>
                     <td className="p-3">
                       <span
@@ -277,7 +281,8 @@ const AdminCourses = () => {
                   }
                   className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                 >
-                  <option value="sequential">לפי סדר</option>
+                  <option value="sequential">לפי סדר שיעורים</option>
+                  <option value="chapter_sequential">לפי סדר פרקים</option>
                   <option value="free">חופשי</option>
                 </select>
               </div>
