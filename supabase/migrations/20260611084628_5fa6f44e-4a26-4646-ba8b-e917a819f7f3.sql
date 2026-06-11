@@ -1,0 +1,1 @@
+ALTER TYPE public.learning_mode ADD VALUE IF NOT EXISTS 'chapter_sequential';
