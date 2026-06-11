@@ -18,7 +18,7 @@ import * as assignmentsDb from "@/lib/db/assignmentsDb";
 import * as lessonAssignmentsDb from "@/lib/db/lessonAssignmentsDb";
 import { supabase } from "@/integrations/supabase/client";
 
-export type LearningMode = "sequential" | "free";
+export type LearningMode = "sequential" | "free" | "chapter_sequential";
 export type CourseStatus = "active" | "draft";
 export type Role = "user" | "admin";
 

@@ -81,6 +81,19 @@ const CoursePage = () => {
 
   const isLessonLocked = (lessonId: string) => {
     if (course.learningMode === "free") return false;
+    if (course.learningMode === "chapter_sequential") {
+      const chapterIdx = course.chapters.findIndex((ch) =>
+        ch.lessons.some((l) => l.id === lessonId)
+      );
+      if (chapterIdx <= 0) return false;
+      for (let i = 0; i < chapterIdx; i++) {
+        const prevCh = course.chapters[i];
+        for (const l of prevCh.lessons) {
+          if (!progress.completedLessonIds.includes(l.id)) return true;
+        }
+      }
+      return false;
+    }
     const idx = flatLessons.findIndex((l) => l.id === lessonId);
     if (idx <= 0) return false;
     for (let i = 0; i < idx; i++) {
