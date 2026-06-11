@@ -7,6 +7,7 @@ export type Attachment = {
   size?: string;
   url: string;
   icon: LucideIcon;
+  isLink?: boolean;
 };
 
 export type QuizQuestion = {

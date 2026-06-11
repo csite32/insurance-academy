@@ -19,6 +19,7 @@ const parseAttachment = (raw: string, lessonId: string, i: number): Attachment =
         name: o.name ?? "קובץ",
         url: o.url ?? "#",
         icon: iconForType(type),
+        isLink: type === "link",
       };
     }
   } catch { /* fall through */ }

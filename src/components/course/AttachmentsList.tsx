@@ -42,12 +42,14 @@ const AttachmentsList = ({ items }: { items: Attachment[] }) => (
                   <span className="hidden sm:inline">צפייה</span>
                 </a>
               </Button>
-              <Button asChild size="sm" className="gap-1 px-2.5">
-                <a href={a.url} download>
-                  <Download className="h-4 w-4" />
-                  <span className="hidden sm:inline">הורדה</span>
-                </a>
-              </Button>
+              {!a.isLink && (
+                <Button asChild size="sm" className="gap-1 px-2.5">
+                  <a href={a.url} download>
+                    <Download className="h-4 w-4" />
+                    <span className="hidden sm:inline">הורדה</span>
+                  </a>
+                </Button>
+              )}
             </div>
           </div>
         );
