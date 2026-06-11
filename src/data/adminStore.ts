@@ -52,6 +52,7 @@ export type AdminCourse = {
   iconKey: string;
   learningMode: LearningMode;
   status: CourseStatus;
+  hasSimulation: boolean;
 };
 
 export type AdminUser = {
@@ -129,7 +130,18 @@ export function isHydrated() {
 
 async function refreshCourses() {
   const data = await coursesDb.listCourses();
-  setState({ courses: data });
+  setState({
+    courses: data.map((c) => ({
+      id: c.id,
+      title: c.title,
+      description: c.description,
+      image: c.image,
+      iconKey: c.iconKey,
+      learningMode: c.learningMode,
+      status: c.status,
+      hasSimulation: c.hasSimulation,
+    })),
+  });
 }
 async function refreshChapters() {
   const data = await chaptersDb.listChapters();

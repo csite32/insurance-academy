@@ -11,6 +11,7 @@ export type DbCourse = {
   iconKey: string;
   learningMode: LearningMode;
   status: CourseStatus;
+  hasSimulation: boolean;
 };
 
 type Row = {
@@ -21,6 +22,7 @@ type Row = {
   icon_key: string;
   learning_mode: LearningMode;
   status: CourseStatus;
+  has_simulation: boolean;
 };
 
 const fromRow = (r: Row): DbCourse => ({
@@ -31,6 +33,7 @@ const fromRow = (r: Row): DbCourse => ({
   iconKey: r.icon_key,
   learningMode: r.learning_mode,
   status: r.status,
+  hasSimulation: r.has_simulation,
 });
 
 const toRow = (c: Partial<DbCourse>) => {
@@ -42,6 +45,7 @@ const toRow = (c: Partial<DbCourse>) => {
   if (c.iconKey !== undefined) row.icon_key = c.iconKey;
   if (c.learningMode !== undefined) row.learning_mode = c.learningMode;
   if (c.status !== undefined) row.status = c.status;
+  if (c.hasSimulation !== undefined) row.has_simulation = c.hasSimulation;
   return row;
 };
 
