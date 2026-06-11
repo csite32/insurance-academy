@@ -73,6 +73,7 @@ export function buildCourseDetailFromStore(courseId: string): CourseDetail | nul
     title: course.title,
     description: course.description,
     learningMode: course.learningMode,
+    hasSimulation: course.hasSimulation,
     chapters,
     assignedUserIds: state.assignments
       .filter((a) => a.courseId === courseId)
