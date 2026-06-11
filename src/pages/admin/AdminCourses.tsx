@@ -142,16 +142,17 @@ const AdminCourses = () => {
                 <th className="p-3 font-semibold">שיעורים</th>
                 <th className="p-3 font-semibold">מצב למידה</th>
                 <th className="p-3 font-semibold">סטטוס</th>
+                <th className="p-3 font-semibold">סימולציה</th>
                 <th className="p-3 font-semibold w-24">פעולות</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="p-8 text-center text-muted-foreground">
-                    לא נמצאו קורסים
-                  </td>
-                </tr>
+              <tr>
+                <td colSpan={8} className="p-8 text-center text-muted-foreground">
+                  לא נמצאו קורסים
+                </td>
+              </tr>
               )}
               {filtered.map((c) => {
                 const chCount = chapters.filter((ch) => ch.courseId === c.id).length;
@@ -184,6 +185,9 @@ const AdminCourses = () => {
                       >
                         {c.status === "active" ? "פעיל" : "טיוטה"}
                       </span>
+                    </td>
+                    <td className="p-3">
+                      {c.hasSimulation ? "כן" : "לא"}
                     </td>
                     <td className="p-3">
                       <div className="flex gap-1">
@@ -303,6 +307,13 @@ const AdminCourses = () => {
                   <option value="draft">טיוטה</option>
                 </select>
               </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Switch
+                checked={form.hasSimulation}
+                onCheckedChange={(v) => setForm({ ...form, hasSimulation: v })}
+              />
+              <Label>כולל סימולציה</Label>
             </div>
           </div>
           <DialogFooter className="flex-row-reverse sm:justify-start gap-2">
