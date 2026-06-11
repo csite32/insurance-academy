@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export type LearningMode = "sequential" | "free";
+export type LearningMode = "sequential" | "free" | "chapter_sequential";
 export type CourseStatus = "active" | "draft";
 
 export type DbCourse = {

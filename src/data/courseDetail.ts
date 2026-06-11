@@ -42,7 +42,7 @@ export type Chapter = {
   lessons: Lesson[];
 };
 
-export type LearningMode = "sequential" | "free";
+export type LearningMode = "sequential" | "free" | "chapter_sequential";
 
 export type CourseDetail = {
   id: string;
