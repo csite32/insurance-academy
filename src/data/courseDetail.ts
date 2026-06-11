@@ -49,6 +49,7 @@ export type CourseDetail = {
   title: string;
   description: string;
   learningMode: LearningMode;
+  hasSimulation?: boolean;
   chapters: Chapter[];
   assignedUserIds: string[];
   active: boolean;
