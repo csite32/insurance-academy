@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Plus, Search, Pencil, Trash2 } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
+import { Switch } from "@/components/ui/switch";
 import {
   adminStore,
   useAdminStore,
