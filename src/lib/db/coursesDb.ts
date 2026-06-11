@@ -22,7 +22,7 @@ type Row = {
   icon_key: string;
   learning_mode: LearningMode;
   status: CourseStatus;
-  has_simulation: boolean;
+  has_simulation?: boolean;
 };
 
 const fromRow = (r: Row): DbCourse => ({
