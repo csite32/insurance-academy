@@ -29,6 +29,7 @@ type FormState = {
   image: string;
   learningMode: LearningMode;
   status: CourseStatus;
+  hasSimulation: boolean;
 };
 
 const empty: FormState = {
@@ -37,6 +38,7 @@ const empty: FormState = {
   image: "",
   learningMode: "sequential",
   status: "draft",
+  hasSimulation: false,
 };
 
 const AdminCourses = () => {
@@ -73,6 +75,7 @@ const AdminCourses = () => {
       image: c.image,
       learningMode: c.learningMode,
       status: c.status,
+      hasSimulation: c.hasSimulation,
     });
     setErrors({});
     setEditing(c);
