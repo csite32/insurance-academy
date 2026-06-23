@@ -7,6 +7,7 @@ export type QuizQuestionData = {
   correctAnswer: string;
   correctFeedback?: string;
   wrongFeedback?: string;
+  optionFeedbacks?: string[];
 };
 export type QuizData = {
   title: string;
