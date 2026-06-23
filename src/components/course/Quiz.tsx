@@ -141,6 +141,14 @@ const Quiz = ({ quiz, lessonCompleted }: Props) => {
                 </span>
                 <span className="flex-1">{ans}</span>
               </button>
+              {checked && (q as { optionFeedbacks?: string[] }).optionFeedbacks?.[q.answers.indexOf(ans)] && (
+                <p className={cn(
+                  "text-xs mt-1 leading-snug",
+                  ans === q.correctAnswer ? "text-accent" : "text-muted-foreground"
+                )}>
+                  {(q as { optionFeedbacks?: string[] }).optionFeedbacks![q.answers.indexOf(ans)]}
+                </p>
+              )}
             </li>
           );
         })}
