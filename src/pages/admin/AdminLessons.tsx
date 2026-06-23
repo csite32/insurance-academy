@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { Plus, Pencil, Trash2, ArrowUp, ArrowDown, X, Upload, Loader2, GripVertical } from "lucide-react";
+import { Plus, Pencil, Trash2, ArrowUp, ArrowDown, X, Upload, Loader2, GripVertical, Sparkles } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import {
   DndContext,
@@ -38,6 +38,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import type { QuizData, QuizQuestionData } from "@/lib/db/lessonsDb";
+import { cn } from "@/lib/utils";
 
 type FormState = {
   title: string;
@@ -97,7 +98,7 @@ const DEFAULT_WRONG_FEEDBACK = "כמעט... כדאי לעבור שוב על הנ
 const newBlankQuestion = (): QuizQuestionData => ({
   id: `q-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
   question: "",
-  answers: ["", "", ""],
+  answers: ["", "", "", ""],
   correctAnswer: "",
   correctFeedback: DEFAULT_CORRECT_FEEDBACK,
   wrongFeedback: DEFAULT_WRONG_FEEDBACK,
@@ -106,7 +107,7 @@ const newBlankQuestion = (): QuizQuestionData => ({
 const isValidQuestion = (q: QuizQuestionData): boolean => {
   if (!q.question.trim()) return false;
   const answers = (q.answers ?? []).map((a) => a.trim());
-  if (answers.length !== 3 || answers.some((a) => !a)) return false;
+  if (answers.length < 2 || answers.some((a) => !a)) return false;
   if (!q.correctAnswer.trim()) return false;
   return answers.includes(q.correctAnswer.trim());
 };
@@ -244,6 +245,76 @@ const AdminLessons = () => {
   const [uploadingIdx, setUploadingIdx] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const pendingUploadIdx = useRef<number | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiStatus, setAiStatus] = useState<string | null>(null);
+
+  const generateQuiz = async () => {
+    const groqKey = localStorage.getItem('groq_api_key') ?? '';
+    const vimeoUrl = form.videoUrl.trim();
+    if (!groqKey) {
+      toast({ title: "יש להגדיר Groq API Key בדשבורד", variant: "destructive" });
+      return;
+    }
+    if (!vimeoUrl) {
+      toast({ title: "יש להוסיף קישור Vimeo לשיעור לפני יצירת חידון", variant: "destructive" });
+      return;
+    }
+    setAiLoading(true);
+    setAiStatus("מוריד ומתמלל את הסרטון...");
+    try {
+      const { data: tData, error: tErr } = await supabase.functions.invoke('transcribe-vimeo', {
+        body: { vimeo_url: vimeoUrl, groq_key: groqKey },
+      });
+      if (tErr) throw new Error(tErr.message);
+      if ((tData as { error?: string })?.error) throw new Error((tData as { error: string }).error);
+
+      setAiStatus("יוצר שאלות עם AI...");
+      const prompt = `צור חידון של 5 שאלות רב-ברירה בעברית בהתבסס על התמלול הבא.
+החזר JSON בלבד. פורמט: [{"q":"שאלה","o":["א","ב","ג","ד"],"a":0,"f":["פידבק א","פידבק ב","פידבק ג","פידבק ד"]}]
+כללים: a = אינדקס התשובה הנכונה (0-3). f = 4 פידבקים אחד לכל תשובה. הכל בעברית.
+תמלול:\n${((tData as { transcript?: string }).transcript ?? '').slice(0, 6000)}`;
+
+      const qRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${groqKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.2,
+          response_format: { type: 'json_object' },
+        }),
+      });
+      if (!qRes.ok) throw new Error('Groq API error: ' + qRes.statusText);
+      const qData = await qRes.json() as { choices: { message: { content: string } }[] };
+      let parsed = JSON.parse(qData.choices[0].message.content.trim()) as
+        Array<{ q: string; o: string[]; a: number; f?: string[] }> | Record<string, unknown>;
+      if (!Array.isArray(parsed)) {
+        parsed = (parsed as Record<string, unknown>).questions as typeof parsed
+               ?? Object.values(parsed)[0] as typeof parsed;
+      }
+      const questions: QuizQuestionData[] = (parsed as Array<{ q: string; o: string[]; a: number; f?: string[] }>)
+        .map((raw) => ({
+          id: `ai-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`,
+          question: raw.q,
+          answers: raw.o,
+          correctAnswer: raw.o[raw.a] ?? raw.o[0] ?? '',
+          correctFeedback: raw.f?.[raw.a] ?? DEFAULT_CORRECT_FEEDBACK,
+          wrongFeedback: DEFAULT_WRONG_FEEDBACK,
+          optionFeedbacks: raw.f,
+        }));
+      setForm((f) => ({
+        ...f,
+        quizQuestions: questions,
+        quizTitle: f.quizTitle.trim() || 'חידון שנוצר אוטומטית מהסרטון',
+      }));
+      setAiStatus(null);
+      toast({ title: `נוצרו ${questions.length} שאלות בהצלחה` });
+    } catch (e) {
+      setAiStatus(`שגיאה: ${(e as Error).message}`);
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const uploadFileForRow = async (idx: number, file: File) => {
     setUploadingIdx(idx);
@@ -363,7 +434,7 @@ const AdminLessons = () => {
       quizQuestions: (l.quiz?.questions ?? []).map((q) => ({
         id: q.id,
         question: q.question,
-        answers: [q.answers[0] ?? "", q.answers[1] ?? "", q.answers[2] ?? ""],
+        answers: [q.answers[0] ?? "", q.answers[1] ?? "", q.answers[2] ?? "", q.answers[3] ?? ""],
         correctAnswer: q.correctAnswer,
         correctFeedback: q.correctFeedback?.trim() ? q.correctFeedback : DEFAULT_CORRECT_FEEDBACK,
         wrongFeedback: q.wrongFeedback?.trim() ? q.wrongFeedback : DEFAULT_WRONG_FEEDBACK,
@@ -624,7 +695,32 @@ const AdminLessons = () => {
             </div>
 
             {form.hasQuiz && (
-              <div className="space-y-3 rounded-xl border border-border p-3">
+              <div className="space-y-3 rounded-xl border border-accent/20 bg-accent/5 p-4">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-semibold text-accent">חידון השיעור</Label>
+                  <Button
+                    type="button" size="sm" disabled={aiLoading} onClick={generateQuiz}
+                    className="gap-1.5 rounded-full bg-primary/10 text-primary border border-primary/25 hover:bg-primary/20 shadow-none"
+                    variant="outline"
+                  >
+                    {aiLoading
+                      ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />יוצר...</>
+                      : <><Sparkles className="h-3.5 w-3.5" />צור חידון מהסרטון</>}
+                  </Button>
+                </div>
+
+                {aiStatus && (
+                  <div className={cn(
+                    "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm",
+                    aiLoading
+                      ? "border-primary/20 bg-primary/5 text-primary"
+                      : "border-destructive/20 bg-destructive/5 text-destructive"
+                  )}>
+                    {aiLoading && <Loader2 className="h-3 w-3 animate-spin flex-shrink-0" />}
+                    {aiStatus}
+                  </div>
+                )}
+
                 <div className="space-y-1.5">
                   <Label className="text-sm font-semibold">כותרת החידון</Label>
                   <Input
@@ -671,7 +767,7 @@ const AdminLessons = () => {
                       }}
                     />
                     <div className="space-y-1.5">
-                      {[0, 1, 2].map((ai) => {
+                      {[0, 1, 2, 3].map((ai) => {
                         const ans = q.answers[ai] ?? "";
                         const isCorrect = q.correctAnswer && q.correctAnswer === ans;
                         return (
