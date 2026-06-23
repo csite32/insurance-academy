@@ -1,10 +1,14 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { BookOpen, Users, ListOrdered, PlayCircle, ChevronLeft } from "lucide-react";
+import { BookOpen, Users, ListOrdered, PlayCircle, ChevronLeft, Key } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { useAdminStore } from "@/data/adminStore";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const AdminDashboard = () => {
   const { courses, chapters, lessons, users } = useAdminStore((s) => s);
+  const [groqKey, setGroqKey] = useState(() => localStorage.getItem('groq_api_key') ?? '');
 
   const stats = [
     { label: "קורסים", value: courses.length, icon: BookOpen },
@@ -94,6 +98,24 @@ const AdminDashboard = () => {
           </ul>
         </section>
       </div>
+
+      <section className="mt-6 rounded-2xl border border-border bg-card p-6 shadow-card">
+        <div className="flex items-center gap-2 mb-4">
+          <Key className="h-5 w-5 text-primary" />
+          <h2 className="text-lg font-bold">הגדרות API</h2>
+        </div>
+        <div className="max-w-md space-y-1.5">
+          <Label>Groq API Key (לתמלול וחידון AI)</Label>
+          <Input
+            type="password" dir="ltr" placeholder="gsk_..."
+            value={groqKey}
+            onChange={e => { setGroqKey(e.target.value); localStorage.setItem('groq_api_key', e.target.value); }}
+          />
+          <p className="text-xs text-muted-foreground">
+            מפתח חינמי בכתובת console.groq.com/keys — נשמר במכשיר זה בלבד, לא נשלח לשרת.
+          </p>
+        </div>
+      </section>
     </AdminLayout>
   );
 };
