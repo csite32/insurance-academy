@@ -250,9 +250,14 @@ const AdminLessons = () => {
 
   const generateQuiz = async () => {
     const groqKey = localStorage.getItem('groq_api_key') ?? '';
+    const vimeoToken = localStorage.getItem('vimeo_token') ?? '';
     const vimeoUrl = form.videoUrl.trim();
     if (!groqKey) {
       toast({ title: "יש להגדיר Groq API Key בדשבורד", variant: "destructive" });
+      return;
+    }
+    if (!vimeoToken) {
+      toast({ title: "יש להגדיר Vimeo API Token בדשבורד", variant: "destructive" });
       return;
     }
     if (!vimeoUrl) {
@@ -260,10 +265,10 @@ const AdminLessons = () => {
       return;
     }
     setAiLoading(true);
-    setAiStatus("מוריד ומתמלל את הסרטון...");
+    setAiStatus("מוריד כתוביות מהסרטון...");
     try {
-      const { data: tData, error: tErr } = await supabase.functions.invoke('transcribe-vimeo', {
-        body: { vimeo_url: vimeoUrl, groq_key: groqKey },
+      const { data: tData, error: tErr } = await supabase.functions.invoke('vimeo-transcribe', {
+        body: { vimeo_url: vimeoUrl, vimeo_token: vimeoToken },
       });
       if (tErr) {
     const serverError = (tData as { error?: string })?.error;
