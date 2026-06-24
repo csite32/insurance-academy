@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 const AdminDashboard = () => {
   const { courses, chapters, lessons, users } = useAdminStore((s) => s);
   const [groqKey, setGroqKey] = useState(() => localStorage.getItem('groq_api_key') ?? '');
+  const [vimeoToken, setVimeoToken] = useState(() => localStorage.getItem('vimeo_token') ?? '');
 
   const stats = [
     { label: "קורסים", value: courses.length, icon: BookOpen },
@@ -104,16 +105,29 @@ const AdminDashboard = () => {
           <Key className="h-5 w-5 text-primary" />
           <h2 className="text-lg font-bold">הגדרות API</h2>
         </div>
-        <div className="max-w-md space-y-1.5">
-          <Label>Groq API Key (לתמלול וחידון AI)</Label>
-          <Input
-            type="password" dir="ltr" placeholder="gsk_..."
-            value={groqKey}
-            onChange={e => { setGroqKey(e.target.value); localStorage.setItem('groq_api_key', e.target.value); }}
-          />
-          <p className="text-xs text-muted-foreground">
-            מפתח חינמי בכתובת console.groq.com/keys — נשמר במכשיר זה בלבד, לא נשלח לשרת.
-          </p>
+        <div className="max-w-md space-y-4">
+          <div className="space-y-1.5">
+            <Label>Groq API Key (לתמלול וחידון AI)</Label>
+            <Input
+              type="password" dir="ltr" placeholder="gsk_..."
+              value={groqKey}
+              onChange={e => { setGroqKey(e.target.value); localStorage.setItem('groq_api_key', e.target.value); }}
+            />
+            <p className="text-xs text-muted-foreground">
+              מפתח חינמי בכתובת console.groq.com/keys — נשמר במכשיר זה בלבד, לא נשלח לשרת.
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Vimeo API Token</Label>
+            <Input
+              type="password" dir="ltr" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              value={vimeoToken}
+              onChange={e => { setVimeoToken(e.target.value); localStorage.setItem('vimeo_token', e.target.value); }}
+            />
+            <p className="text-xs text-muted-foreground">
+              מפתח API של Vimeo Premium — נדרש לקריאת כתוביות הסרטונים. נשמר במכשיר זה בלבד.
+            </p>
+          </div>
         </div>
       </section>
     </AdminLayout>
