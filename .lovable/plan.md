@@ -1,50 +1,76 @@
-## ביצוע — Signed URLs ל-`lesson-attachments` (מאושר)
+# Proxy של קבצי Storage דרך Edge Function
 
-מבוצע בסדר הזה. שום שינוי ב-bucket או מחיקת policy עד שלב 4.
+## רקע
 
-### שלב 1 — Edge Function חדשה
-קובץ חדש: `supabase/functions/get-attachment-url/index.ts`
-- CORS + OPTIONS.
-- מקבל `{ lessonId, path }` (Zod-style ולידציה: לא ריקים, ללא `..`, לא מתחיל ב-`/`).
-- מאמת JWT דרך `auth.getUser()` עם anon client + ה-Authorization של הקריאה. אין משתמש → 200 עם `{error:"Unauthenticated"}`.
-- service-role client בודק:
-  1. האם המשתמש admin (`user_roles`). אם כן — דילוג על בדיקת שיוך.
-  2. טוען `lessons(id, course_id, is_locked, attachments)`.
-  3. מחלץ את כל ה-paths המוכרים של השיעור (מ-`storage:…` או מתבנית `…/object/public/lesson-attachments/…`), ומוודא שה-`path` המבוקש נמצא ביניהם. אחרת 403.
-  4. למשתמש רגיל: אם `is_locked=true` נדרש `lesson_assignments`; אחרת מספיק `lesson_assignments` או `assignments` לקורס.
-- בהצלחה: `storage.createSignedUrl(path, 300)` → `{url}`. שגיאות תמיד 200 עם `{error}` (להתאמה לדפוס הקיים בפרויקט).
+ה־signed URL נוצר אבל הדפדפן חוסם את הדומיין של Supabase Storage (`ERR_BLOCKED_BY_CLIENT` — בדרך כלל adblock/uBlock על `*.supabase.co`). הפתרון: לא לפתוח URL של Supabase בדפדפן, אלא להזרים את הקובץ דרך ה־Edge Function (אותו origin של הפונקציות, שלא נחסם).
 
-### שלב 2 — טיפוסים ופירוק
-- `src/data/courseDetail.ts`: ל-`Attachment` יתווספו `storagePath?: string` ו-`lessonId?: string`. שום שינוי אחר.
-- `src/data/courseFromStore.ts`: `parseAttachment` יחשב `storagePath` גם מערך שמתחיל ב-`storage:` וגם מ-URL ציבורי ישן. `isLink` יישאר true רק לקישורים חיצוניים (`type:"link"` ללא `storagePath`).
+## שינויים
 
-### שלב 3 — UI הצפייה
-- `src/components/course/LessonContent.tsx`: להעביר `lessonId={lesson.id}` ל-`AttachmentsList`.
-- `src/components/course/AttachmentsList.tsx`:
-  - prop חדש `lessonId`.
-  - לכל פריט:
-    - אם `storagePath`: כפתורי "צפייה"/"הורדה" קוראים ל-`supabase.functions.invoke('get-attachment-url', { body:{ lessonId, path: a.storagePath }})`, פותחים `window.open(url,'_blank')` או יוצרים `<a download>` דינמי. שגיאה → toast הולם.
-    - אם `isLink` (חיצוני) או אין `storagePath`: התנהגות הנוכחית — `<a href={a.url}>` ישיר. **לא נוגעים בקישורים חיצוניים.**
+### 1. `supabase/functions/get-attachment-url/index.ts` — הרחבה
 
-### שלב 3.5 — העלאת קובץ חדש
-- `src/pages/admin/AdminLessons.tsx` ב-`uploadFileForRow`: במקום `getPublicUrl(path).publicUrl`, לשמור `url: "storage:" + path`. שאר הקוד כפי שהוא.
+הפונקציה תתמוך בשני מצבים, ללא שבירה של תאימות:
 
-> נקודת עצירה: בשלב הזה המערכת ממשיכה לעבוד כרגיל (ה-bucket עוד public). מאמתים שאין רגרסיה ב-UI ובאדמין.
+**Input (POST JSON):**
+```
+{ lessonId: string, path: string, mode?: "view" | "download" | "url" }
+```
 
-### שלב 4 — Migration + Bucket לפרטי (אחרון)
-- Migration: `DROP POLICY "lesson_attachments_public_read" ON storage.objects;` + יצירת `lesson_attachments_admin_read` (SELECT ל-`authenticated` עם `has_role(auth.uid(),'admin')`).
-- אחרי הצלחת ה-migration: קריאה ל-`storage_update_bucket(name='lesson-attachments', public=false)`.
+- `mode` חסר או `"url"` → התנהגות נוכחית: מחזיר `{ url: signedUrl }` (נשמר ליתר ביטחון, לא בשימוש מהפרונט אחרי השינוי).
+- `mode === "view"` או `"download"` → מוריד את הקובץ עם service role, ומחזיר את ה־body של הקובץ עם:
+  - `Content-Type` מתוך `blob.type` (fallback: ניחוש לפי סיומת — pdf/png/jpg/docx/xlsx/pptx, אחרת `application/octet-stream`).
+  - `Content-Disposition: inline; filename="<name>"` לצפייה.
+  - `Content-Disposition: attachment; filename="<name>"` להורדה.
+  - `Cache-Control: private, max-age=0`.
+  - `Access-Control-Expose-Headers: Content-Disposition` (לטובת הפרונט).
 
-### שלב 5 — בדיקות מיידיות אחרי שלב 4
-- קובץ קיים (URL ציבורי ישן ב-DB) — נפתח דרך Edge Function למשתמש מורשה. ✅
-- קובץ חדש (`storage:…`) — נפתח למשתמש מורשה. ✅
-- משתמש לא מורשה — toast/403. ✅
-- משתמש לא מחובר — 401-like. ✅
-- אדמין — צפייה עובדת. ✅
-- קישור חיצוני (`type:"link"`) — נפתח ישירות, לא נוגע ב-Edge Function. ✅
-- בדיקה ישירה ל-URL ציבורי ישן (curl) — מחזיר 400/404. ✅
+**ללא שינוי:**
+- אימות JWT (`getClaims(token)`).
+- כל בדיקות ההרשאה: admin → תמיד; אחרת `lesson_assignments`; אחרת `assignments` לפי `course_id` כשהשיעור לא נעול.
+- אימות ש־`path` שייך ל־`lesson.attachments` (אותה לוגיקה של `extractPath` + `knownPaths`).
+- CORS headers בכל response.
+- שם הקובץ מחושב מ־`path.split("/").pop()`.
 
-### לא נוגעים
-Progress · Quiz · Auth · Course logic · Admin logic מעבר ל-`uploadFileForRow`.
+### 2. `src/components/course/AttachmentsList.tsx` — שינוי קריאה
 
-לאחר אישור Build, אריץ את שלב 1→3.5, אעצור לאישור קצר, ואז אריץ שלב 4 + בדיקות שלב 5.
+המרת `fetchSignedUrl` ל־`fetchAttachmentBlob(a, mode)`:
+
+- שימוש ב־`fetch` ישיר (לא `supabase.functions.invoke`) כדי לקבל גישה ל־response headers וגוף בינארי:
+  ```
+  POST `${VITE_SUPABASE_URL}/functions/v1/get-attachment-url`
+  Headers:
+    Authorization: Bearer <session.access_token>
+    apikey: <VITE_SUPABASE_PUBLISHABLE_KEY>
+    Content-Type: application/json
+  Body: { lessonId, path, mode }
+  ```
+- שגיאות (status != 2xx): קריאת JSON `{ error }` והצגת toast — אותה הודעה כמו היום.
+- הצלחה: `await res.blob()` → `URL.createObjectURL(blob)`.
+- `handleView`: `window.open(objectUrl, "_blank", "noopener,noreferrer")`. setTimeout של ~60s ל־`URL.revokeObjectURL`.
+- `handleDownload`: יצירת `<a>` עם `href=objectUrl` ו־`download=a.name`, click, revoke מיד אחרי.
+- מצב טעינה (`busyId`) נשמר כפי שהוא.
+- קישורים חיצוניים (`storagePath` ריק) — נשארים בדיוק כמו עכשיו (פתיחה ישירה של `a.url`).
+
+### 3. ללא שינוי
+
+- `LessonContent.tsx`, `courseDetail.ts`, `courseFromStore.ts`, `AdminLessons.tsx` — נשארים.
+- Bucket `lesson-attachments` נשאר Public (שלב 4 לא מתבצע).
+- Public read policy לא נמחקת.
+- אין מיגרציות, אין שינוי DB.
+- Progress / Quiz / Auth / Course logic / Admin logic — לא נוגעים.
+
+## למה זה פותר את החסימה
+
+- הקובץ מוגש מהדומיין של Edge Functions (`*.functions.supabase.co`) דרך `fetch` + `blob:` URL, ולא דרך פתיחה ישירה של דומיין Storage. גם אם adblock חוסם דומיין Storage, ה־fetch לפונקציה לא נחסם, וה־`blob:` URL נפתח מקומית בדפדפן.
+
+## בדיקות אחרי השינוי
+
+1. משתמש מורשה: צפייה → נפתחת לשונית עם הקובץ (PDF/תמונה inline).
+2. משתמש מורשה: הורדה → הקובץ יורד עם השם המקורי.
+3. משתמש ללא הרשאה לשיעור נעול → toast "Forbidden".
+4. אדמין → גישה לכל קובץ.
+5. קישור חיצוני (link) → נפתח רגיל בטאב חדש, לא עובר דרך הפונקציה.
+6. שגיאת `ERR_BLOCKED_BY_CLIENT` נעלמת.
+
+## עצירה
+
+לאחר הבדיקות — **לא להמשיך לשלב 4** (הפיכת bucket לפרטי / הסרת public policy). עצירה לאישור.

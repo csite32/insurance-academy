@@ -22,24 +22,52 @@ const fileTypeLabel = (name: string) => {
 const AttachmentsList = ({ items, lessonId }: { items: Attachment[]; lessonId?: string }) => {
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  const fetchSignedUrl = async (a: Attachment): Promise<string | null> => {
+  const fetchAttachmentObjectUrl = async (
+    a: Attachment,
+    mode: "view" | "download",
+  ): Promise<string | null> => {
     const lid = lessonId ?? a.lessonId;
     if (!a.storagePath || !lid) return null;
     setBusyId(a.id);
     try {
-      const { data, error } = await supabase.functions.invoke("get-attachment-url", {
-        body: { lessonId: lid, path: a.storagePath },
-      });
-      const serverError = (data as { error?: string } | null)?.error;
-      if (error || serverError) {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      if (!accessToken) {
         toast({
           title: "לא ניתן לפתוח את הקובץ",
-          description: serverError || error?.message || "שגיאה",
+          description: "אין התחברות פעילה",
           variant: "destructive",
         });
         return null;
       }
-      return (data as { url?: string })?.url ?? null;
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-attachment-url`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ lessonId: lid, path: a.storagePath, mode }),
+      });
+      const contentType = res.headers.get("content-type") ?? "";
+      if (!res.ok || contentType.includes("application/json")) {
+        let message = "שגיאה";
+        try {
+          const j = await res.json();
+          message = j?.error ?? message;
+        } catch {
+          /* ignore */
+        }
+        toast({
+          title: "לא ניתן לפתוח את הקובץ",
+          description: message,
+          variant: "destructive",
+        });
+        return null;
+      }
+      const blob = await res.blob();
+      return URL.createObjectURL(blob);
     } catch (e) {
       toast({
         title: "שגיאה",
@@ -57,8 +85,10 @@ const AttachmentsList = ({ items, lessonId }: { items: Attachment[]; lessonId?: 
       window.open(a.url, "_blank", "noopener,noreferrer");
       return;
     }
-    const url = await fetchSignedUrl(a);
-    if (url) window.open(url, "_blank", "noopener,noreferrer");
+    const url = await fetchAttachmentObjectUrl(a, "view");
+    if (!url) return;
+    window.open(url, "_blank", "noopener,noreferrer");
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
 
   const handleDownload = async (a: Attachment) => {
@@ -69,12 +99,13 @@ const AttachmentsList = ({ items, lessonId }: { items: Attachment[]; lessonId?: 
       link.click();
       return;
     }
-    const url = await fetchSignedUrl(a);
+    const url = await fetchAttachmentObjectUrl(a, "download");
     if (!url) return;
     const link = document.createElement("a");
     link.href = url;
     link.download = a.name;
     link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 5_000);
   };
 
   return (
