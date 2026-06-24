@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
     if (claimsErr || !claims?.claims?.sub) return json({ error: "Unauthenticated" }, 200);
     const userId = claims.claims.sub as string;
 
-    let body: { lessonId?: string; path?: string; mode?: string };
+    let body: { lessonId?: string; path?: string };
     try {
       body = await req.json();
     } catch {
@@ -85,10 +85,6 @@ Deno.serve(async (req) => {
     }
     const lessonId = (body?.lessonId ?? "").toString().trim();
     const reqPath = (body?.path ?? "").toString().trim();
-    const mode = ((body?.mode ?? "url").toString().trim().toLowerCase()) as
-      | "view"
-      | "download"
-      | "url";
     if (!lessonId || !reqPath) return json({ error: "Missing lessonId or path" }, 200);
     if (reqPath.includes("..") || reqPath.startsWith("/")) {
       return json({ error: "Invalid path" }, 200);
@@ -154,39 +150,12 @@ Deno.serve(async (req) => {
       if (!allowed) return json({ error: "Forbidden" }, 200);
     }
 
-    if (mode === "view" || mode === "download") {
-      const { data: blob, error: dErr } = await admin.storage
-        .from("lesson-attachments")
-        .download(reqPath);
-      if (dErr || !blob) {
-        console.log(JSON.stringify({ responseKind: "error-json", stage: "download", mode, reqPath, error: dErr?.message }));
-        return json({ error: dErr?.message ?? "Failed to download" }, 200);
-      }
-      const fileName = reqPath.split("/").pop() || "file";
-      const contentType = blob.type && blob.type !== "application/octet-stream"
-        ? blob.type
-        : guessMime(fileName);
-      const disposition = `${mode === "view" ? "inline" : "attachment"}; ${encodeFilename(fileName)}`;
-      console.log(JSON.stringify({ responseKind: "binary", mode, reqPath, contentType }));
-      return new Response(blob, {
-        status: 200,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": contentType,
-          "Content-Disposition": disposition,
-          "Cache-Control": "private, max-age=0, no-store",
-          "Access-Control-Expose-Headers": "Content-Disposition",
-        },
-      });
-    }
-
     const { data: signed, error: sErr } = await admin.storage
       .from("lesson-attachments")
       .createSignedUrl(reqPath, 300);
     if (sErr || !signed?.signedUrl) {
       return json({ error: sErr?.message ?? "Failed to sign" }, 200);
     }
-    console.log(JSON.stringify({ responseKind: "signed-url-json", mode, reqPath }));
     return json({ url: signed.signedUrl }, 200);
   } catch (e) {
     return json({ error: e instanceof Error ? e.message : "Unknown error" }, 200);
