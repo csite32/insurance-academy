@@ -313,7 +313,7 @@ const AdminLessons = () => {
       setForm((f) => ({
         ...f,
         quizQuestions: questions,
-        quizTitle: f.quizTitle.trim() || 'חידון שנוצר אוטומטית מהסרטון',
+        quizTitle: f.quizTitle.trim() || 'חידון השיעור',
       }));
       setAiStatus(null);
       toast({ title: `נוצרו ${questions.length} שאלות בהצלחה` });
