@@ -36,13 +36,14 @@ Deno.serve(async (req) => {
     if (!authHeader.toLowerCase().startsWith("bearer ")) {
       return json({ error: "Unauthenticated" }, 200);
     }
+    const token = authHeader.slice("bearer ".length).trim();
 
     const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: userData, error: userErr } = await userClient.auth.getUser();
-    if (userErr || !userData?.user) return json({ error: "Unauthenticated" }, 200);
-    const userId = userData.user.id;
+    const { data: claims, error: claimsErr } = await userClient.auth.getClaims(token);
+    if (claimsErr || !claims?.claims?.sub) return json({ error: "Unauthenticated" }, 200);
+    const userId = claims.claims.sub as string;
 
     let body: { lessonId?: string; path?: string };
     try {
