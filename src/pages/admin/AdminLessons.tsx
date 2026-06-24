@@ -333,12 +333,11 @@ const AdminLessons = () => {
         .from("lesson-attachments")
         .upload(path, file, { cacheControl: "3600", upsert: false });
       if (upErr) throw upErr;
-      const { data } = supabase.storage.from("lesson-attachments").getPublicUrl(path);
       const next = [...form.attachments];
       const prev = next[idx] ?? { name: "", url: "", type: "link" as AttachmentType };
       next[idx] = {
         name: prev.name?.trim() ? prev.name : file.name,
-        url: data.publicUrl,
+        url: `storage:${path}`,
         type: inferTypeFromName(file.name),
       };
       setForm({ ...form, attachments: next });

@@ -60,7 +60,7 @@ const LessonContent = ({
             </span>
           </AccordionTrigger>
           <AccordionContent className="px-5 pb-5">
-            <AttachmentsList items={lesson.attachments} />
+            <AttachmentsList items={lesson.attachments} lessonId={lesson.id} />
           </AccordionContent>
         </AccordionItem>
       </Accordion>

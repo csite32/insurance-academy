@@ -1,76 +1,50 @@
-## תוכנית: החזרת מערכת חידונים לשיעורים
+## ביצוע — Signed URLs ל-`lesson-attachments` (מאושר)
 
-### 1. איפה יישמרו החידונים
+מבוצע בסדר הזה. שום שינוי ב-bucket או מחיקת policy עד שלב 4.
 
-הוספת עמודה אחת לטבלת `lessons`:
-- `quiz jsonb null` — אם `null` אין חידון. אם קיים — אובייקט יחיד.
+### שלב 1 — Edge Function חדשה
+קובץ חדש: `supabase/functions/get-attachment-url/index.ts`
+- CORS + OPTIONS.
+- מקבל `{ lessonId, path }` (Zod-style ולידציה: לא ריקים, ללא `..`, לא מתחיל ב-`/`).
+- מאמת JWT דרך `auth.getUser()` עם anon client + ה-Authorization של הקריאה. אין משתמש → 200 עם `{error:"Unauthenticated"}`.
+- service-role client בודק:
+  1. האם המשתמש admin (`user_roles`). אם כן — דילוג על בדיקת שיוך.
+  2. טוען `lessons(id, course_id, is_locked, attachments)`.
+  3. מחלץ את כל ה-paths המוכרים של השיעור (מ-`storage:…` או מתבנית `…/object/public/lesson-attachments/…`), ומוודא שה-`path` המבוקש נמצא ביניהם. אחרת 403.
+  4. למשתמש רגיל: אם `is_locked=true` נדרש `lesson_assignments`; אחרת מספיק `lesson_assignments` או `assignments` לקורס.
+- בהצלחה: `storage.createSignedUrl(path, 300)` → `{url}`. שגיאות תמיד 200 עם `{error}` (להתאמה לדפוס הקיים בפרויקט).
 
-מבנה ה־JSON שיישמר:
-```json
-{
-  "title": "חידון קצר",
-  "questions": [
-    {
-      "id": "q1",
-      "question": "טקסט השאלה",
-      "answers": ["א", "ב", "ג"],
-      "correctAnswer": "א",
-      "correctFeedback": "יפה!",
-      "wrongFeedback": "התשובה הנכונה היא א כי..."
-    }
-  ]
-}
-```
+### שלב 2 — טיפוסים ופירוק
+- `src/data/courseDetail.ts`: ל-`Attachment` יתווספו `storagePath?: string` ו-`lessonId?: string`. שום שינוי אחר.
+- `src/data/courseFromStore.ts`: `parseAttachment` יחשב `storagePath` גם מערך שמתחיל ב-`storage:` וגם מ-URL ציבורי ישן. `isLink` יישאר true רק לקישורים חיצוניים (`type:"link"` ללא `storagePath`).
 
-נימוקים: טבלה ייעודית הייתה מצריכה RLS, גרנטים, סנכרון Realtime, וקריאות נוספות. שמירה כעמודה על `lessons` משתמשת ב־RLS הקיים של `lessons` (כולל ההגנה על שיעורים נעולים) ולא דורשת שינוי בהרשאות. השדה `has_quiz` הקיים יישאר כדגל UI; מקור האמת בפועל הוא `quiz != null`.
+### שלב 3 — UI הצפייה
+- `src/components/course/LessonContent.tsx`: להעביר `lessonId={lesson.id}` ל-`AttachmentsList`.
+- `src/components/course/AttachmentsList.tsx`:
+  - prop חדש `lessonId`.
+  - לכל פריט:
+    - אם `storagePath`: כפתורי "צפייה"/"הורדה" קוראים ל-`supabase.functions.invoke('get-attachment-url', { body:{ lessonId, path: a.storagePath }})`, פותחים `window.open(url,'_blank')` או יוצרים `<a download>` דינמי. שגיאה → toast הולם.
+    - אם `isLink` (חיצוני) או אין `storagePath`: התנהגות הנוכחית — `<a href={a.url}>` ישיר. **לא נוגעים בקישורים חיצוניים.**
 
-### 2. אילו קבצים ישתנו (נקודתי בלבד)
+### שלב 3.5 — העלאת קובץ חדש
+- `src/pages/admin/AdminLessons.tsx` ב-`uploadFileForRow`: במקום `getPublicUrl(path).publicUrl`, לשמור `url: "storage:" + path`. שאר הקוד כפי שהוא.
 
-- **מיגרציה חדשה** — `ALTER TABLE public.lessons ADD COLUMN quiz jsonb`. ללא נגיעה ב־RLS/grants.
-- `src/lib/db/lessonsDb.ts` — להוסיף `quiz` ל־`Row`, ל־`DbLesson`, ול־mappers `fromRow`/`toRow`.
-- `src/data/adminStore.ts` — להחליף `quiz: null` ב־`AdminLesson` בשדה `quiz: QuizData | null`; להעביר את הערך ב־hydrate/create/update.
-- `src/data/courseDetail.ts` — להוסיף לטיפוס `QuizQuestion` שדות אופציונליים `correctFeedback?` ו־`wrongFeedback?`.
-- `src/data/courseFromStore.ts` — אם `l.quiz` קיים, להעביר אותו ל־`Lesson.quiz` (כולל `isUnlockedAfterLessonCompletion: true`); אחרת `undefined`.
-- `src/pages/admin/AdminLessons.tsx` — להוסיף עורך חידון בתוך ה־Dialog הקיים (מותנה ב־`hasQuiz`), ולשמור את ה־JSON ב־`adminStore.updateLesson/createLesson`.
-- `src/components/course/Quiz.tsx` — להציג `correctFeedback`/`wrongFeedback` בבלוק הפידבק הקיים (Fallback לטקסט הנוכחי אם ריק).
-- `src/components/course/LessonContent.tsx` — כבר מרנדר `{lesson.quiz && <Quiz .../>}`. ללא שינוי. הוא כבר מעביר `isCompleted` שמשמש כ־`lessonCompleted`.
+> נקודת עצירה: בשלב הזה המערכת ממשיכה לעבוד כרגיל (ה-bucket עוד public). מאמתים שאין רגרסיה ב-UI ובאדמין.
 
-ללא נגיעה ב־: progress, RLS, AuthContext, Realtime listener, קבצים נלווים, UI גלובלי, עיצוב, דוח מנהל.
+### שלב 4 — Migration + Bucket לפרטי (אחרון)
+- Migration: `DROP POLICY "lesson_attachments_public_read" ON storage.objects;` + יצירת `lesson_attachments_admin_read` (SELECT ל-`authenticated` עם `has_role(auth.uid(),'admin')`).
+- אחרי הצלחת ה-migration: קריאה ל-`storage_update_bucket(name='lesson-attachments', public=false)`.
 
-### 3. איך זה ייראה במנהל
+### שלב 5 — בדיקות מיידיות אחרי שלב 4
+- קובץ קיים (URL ציבורי ישן ב-DB) — נפתח דרך Edge Function למשתמש מורשה. ✅
+- קובץ חדש (`storage:…`) — נפתח למשתמש מורשה. ✅
+- משתמש לא מורשה — toast/403. ✅
+- משתמש לא מחובר — 401-like. ✅
+- אדמין — צפייה עובדת. ✅
+- קישור חיצוני (`type:"link"`) — נפתח ישירות, לא נוגע ב-Edge Function. ✅
+- בדיקה ישירה ל-URL ציבורי ישן (curl) — מחזיר 400/404. ✅
 
-ב־`AdminLessons` Dialog, מתחת ל־checkbox "כולל חידון" הקיים — כשמסומן, יוצג פאנל עורך:
-- שדה "כותרת החידון"
-- רשימת שאלות. לכל שאלה:
-  - טקסט השאלה
-  - 3 שדות תשובה (קבוע 3)
-  - בורר "תשובה נכונה" (Radio של 3 האפשרויות)
-  - "פידבק לתשובה נכונה" (Textarea קצר)
-  - "פידבק לתשובה שגויה" (Textarea קצר)
-  - כפתור מחיקת שאלה
-- כפתור "הוסף שאלה" שיוצר 3 תשובות ריקות
+### לא נוגעים
+Progress · Quiz · Auth · Course logic · Admin logic מעבר ל-`uploadFileForRow`.
 
-**ולידציה בשמירה:**
-- שאלה נחשבת תקינה רק אם: יש טקסט שאלה, 3 תשובות לא ריקות, ו־`correctAnswer` שווה לאחת מהן.
-- אם `hasQuiz=true` אבל אין אף שאלה תקינה — **לא נשמר חידון ריק**. הטופס לא נשלח, ומוצגת הודעת שגיאה ברורה במנהל (toast destructive + הודעת שגיאה ליד פאנל החידון): "יש להוסיף לפחות שאלה אחת תקינה (טקסט שאלה, 3 תשובות, תשובה נכונה מסומנת), או לבטל את 'כולל חידון'."
-- אם `hasQuiz=false` — `quiz` נשמר כ־`null` (אפילו אם יש טיוטה בעורך).
-
-### 4. איך זה ייראה בפרונט
-
-הקומפוננטה `Quiz` הקיימת כבר מספקת: שאלה אחת בכל פעם, פידבק מיידי, כפתור "לשאלה הבאה", סיכום בסוף. שני שינויים בלבד:
-- בבלוק הפידבק להציג את `q.correctFeedback`/`q.wrongFeedback` במקום (או בנוסף ל) הטקסט הגנרי, אם הוגדרו.
-- `isUnlockedAfterLessonCompletion: true` יישלח מ־`courseFromStore`, כך שהחידון יוצג רק לאחר שהשיעור סומן כהושלם (התנהגות שכבר ממומשת בקומפוננטה).
-
-אם אין `quiz` על השיעור — לא מוצג כלום (זה כבר ההתנהגות של `LessonContent`).
-
-### 5. איך נמנעים מפגיעה במערכת הקיימת
-
-- **שדה אופציונלי**: עמודת `quiz` ב־DB היא `null` כברירת מחדל; שיעורים קיימים לא משתנים.
-- **בלי RLS חדש**: שמירה על `lessons` משתמשת במדיניות הקיימת, כולל ההגנה על תוכן נעול.
-- **בלי Realtime חדש**: ה־subscription של `lessons` כבר הוסר מסיבות אבטחה; שינויי חידון יופיעו בפרונט בריענון נתונים רגיל של ה־store, ללא בקשה לשנות זאת.
-- **בלי שינוי progress**: החידון לא משפיע על `lesson_progress`. הוא רק קורא את `isCompleted` שמועבר כבר היום ל־Quiz.
-- **תאימות לאחור ב־JSON**: `correctFeedback`/`wrongFeedback` אופציונליים; אם חסרים — נופלים לטקסט הגנרי הקיים.
-- **בלי שמירת חידונים ריקים**: ולידציה חוסמת שמירה במצב לא תקין, עם הודעת שגיאה ברורה במנהל.
-- **בלי שינוי בקבצים נלווים, UI כללי, דוח מנהל, או Refactor רחב.**
-
-לאחר אישור — אבצע בסדר: מיגרציה → קוד.
+לאחר אישור Build, אריץ את שלב 1→3.5, אעצור לאישור קצר, ואז אריץ שלב 4 + בדיקות שלב 5.

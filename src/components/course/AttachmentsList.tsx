@@ -1,6 +1,9 @@
 import { Download, Eye } from "lucide-react";
+import { useState } from "react";
 import type { Attachment } from "@/data/courseDetail";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 const fileTypeLabel = (name: string) => {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
@@ -16,10 +19,69 @@ const fileTypeLabel = (name: string) => {
   return map[ext] ?? ext.toUpperCase();
 };
 
-const AttachmentsList = ({ items }: { items: Attachment[] }) => (
-  <div className="grid gap-3 sm:grid-cols-2">
+const AttachmentsList = ({ items, lessonId }: { items: Attachment[]; lessonId?: string }) => {
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const fetchSignedUrl = async (a: Attachment): Promise<string | null> => {
+    const lid = lessonId ?? a.lessonId;
+    if (!a.storagePath || !lid) return null;
+    setBusyId(a.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("get-attachment-url", {
+        body: { lessonId: lid, path: a.storagePath },
+      });
+      const serverError = (data as { error?: string } | null)?.error;
+      if (error || serverError) {
+        toast({
+          title: "לא ניתן לפתוח את הקובץ",
+          description: serverError || error?.message || "שגיאה",
+          variant: "destructive",
+        });
+        return null;
+      }
+      return (data as { url?: string })?.url ?? null;
+    } catch (e) {
+      toast({
+        title: "שגיאה",
+        description: e instanceof Error ? e.message : "שגיאה לא ידועה",
+        variant: "destructive",
+      });
+      return null;
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleView = async (a: Attachment) => {
+    if (!a.storagePath) {
+      window.open(a.url, "_blank", "noopener,noreferrer");
+      return;
+    }
+    const url = await fetchSignedUrl(a);
+    if (url) window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const handleDownload = async (a: Attachment) => {
+    if (!a.storagePath) {
+      const link = document.createElement("a");
+      link.href = a.url;
+      link.download = a.name;
+      link.click();
+      return;
+    }
+    const url = await fetchSignedUrl(a);
+    if (!url) return;
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = a.name;
+    link.click();
+  };
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
       {items.map((a) => {
         const Icon = a.icon;
+        const busy = busyId === a.id;
         return (
           <div
             key={a.id}
@@ -36,25 +98,33 @@ const AttachmentsList = ({ items }: { items: Attachment[] }) => (
               </div>
             </div>
             <div className="flex items-center gap-1.5">
-              <Button asChild size="sm" variant="outline" className="gap-1 px-2.5">
-                <a href={a.url} target="_blank" rel="noreferrer">
-                  <Eye className="h-4 w-4" />
-                  <span className="hidden sm:inline">צפייה</span>
-                </a>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1 px-2.5"
+                onClick={() => handleView(a)}
+                disabled={busy}
+              >
+                <Eye className="h-4 w-4" />
+                <span className="hidden sm:inline">צפייה</span>
               </Button>
               {!a.isLink && (
-                <Button asChild size="sm" className="gap-1 px-2.5">
-                  <a href={a.url} download>
-                    <Download className="h-4 w-4" />
-                    <span className="hidden sm:inline">הורדה</span>
-                  </a>
+                <Button
+                  size="sm"
+                  className="gap-1 px-2.5"
+                  onClick={() => handleDownload(a)}
+                  disabled={busy}
+                >
+                  <Download className="h-4 w-4" />
+                  <span className="hidden sm:inline">הורדה</span>
                 </Button>
               )}
             </div>
           </div>
         );
       })}
-  </div>
-);
+    </div>
+  );
+};
 
 export default AttachmentsList;
