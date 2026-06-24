@@ -159,6 +159,7 @@ Deno.serve(async (req) => {
         .from("lesson-attachments")
         .download(reqPath);
       if (dErr || !blob) {
+        console.log(JSON.stringify({ responseKind: "error-json", stage: "download", mode, reqPath, error: dErr?.message }));
         return json({ error: dErr?.message ?? "Failed to download" }, 200);
       }
       const fileName = reqPath.split("/").pop() || "file";
@@ -166,6 +167,7 @@ Deno.serve(async (req) => {
         ? blob.type
         : guessMime(fileName);
       const disposition = `${mode === "view" ? "inline" : "attachment"}; ${encodeFilename(fileName)}`;
+      console.log(JSON.stringify({ responseKind: "binary", mode, reqPath, contentType }));
       return new Response(blob, {
         status: 200,
         headers: {
@@ -184,6 +186,7 @@ Deno.serve(async (req) => {
     if (sErr || !signed?.signedUrl) {
       return json({ error: sErr?.message ?? "Failed to sign" }, 200);
     }
+    console.log(JSON.stringify({ responseKind: "signed-url-json", mode, reqPath }));
     return json({ url: signed.signedUrl }, 200);
   } catch (e) {
     return json({ error: e instanceof Error ? e.message : "Unknown error" }, 200);
