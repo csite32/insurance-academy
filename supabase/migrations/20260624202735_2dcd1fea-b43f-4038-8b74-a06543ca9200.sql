@@ -1,0 +1,2 @@
+DROP POLICY IF EXISTS lesson_attachments_public_read ON storage.objects;
+CREATE POLICY lesson_attachments_admin_read ON storage.objects FOR SELECT TO authenticated USING (bucket_id = 'lesson-attachments' AND has_role(auth.uid(), 'admin'::app_role));
