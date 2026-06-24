@@ -22,10 +22,7 @@ const fileTypeLabel = (name: string) => {
 const AttachmentsList = ({ items, lessonId }: { items: Attachment[]; lessonId?: string }) => {
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  const fetchAttachmentObjectUrl = async (
-    a: Attachment,
-    mode: "view" | "download",
-  ): Promise<string | null> => {
+  const fetchSignedUrl = async (a: Attachment): Promise<string | null> => {
     const lid = lessonId ?? a.lessonId;
     if (!a.storagePath || !lid) return null;
     setBusyId(a.id);
@@ -48,26 +45,18 @@ const AttachmentsList = ({ items, lessonId }: { items: Attachment[]; lessonId?: 
           Authorization: `Bearer ${accessToken}`,
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
-        body: JSON.stringify({ lessonId: lid, path: a.storagePath, mode }),
+        body: JSON.stringify({ lessonId: lid, path: a.storagePath }),
       });
-      const contentType = res.headers.get("content-type") ?? "";
-      if (!res.ok || contentType.includes("application/json")) {
-        let message = "שגיאה";
-        try {
-          const j = await res.json();
-          message = j?.error ?? message;
-        } catch {
-          /* ignore */
-        }
+      const j = await res.json().catch(() => null);
+      if (!res.ok || !j?.url) {
         toast({
           title: "לא ניתן לפתוח את הקובץ",
-          description: message,
+          description: j?.error ?? "שגיאה",
           variant: "destructive",
         });
         return null;
       }
-      const blob = await res.blob();
-      return URL.createObjectURL(blob);
+      return j.url as string;
     } catch (e) {
       toast({
         title: "שגיאה",
@@ -85,10 +74,9 @@ const AttachmentsList = ({ items, lessonId }: { items: Attachment[]; lessonId?: 
       window.open(a.url, "_blank", "noopener,noreferrer");
       return;
     }
-    const url = await fetchAttachmentObjectUrl(a, "view");
+    const url = await fetchSignedUrl(a);
     if (!url) return;
     window.open(url, "_blank", "noopener,noreferrer");
-    setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
 
   const handleDownload = async (a: Attachment) => {
@@ -99,13 +87,14 @@ const AttachmentsList = ({ items, lessonId }: { items: Attachment[]; lessonId?: 
       link.click();
       return;
     }
-    const url = await fetchAttachmentObjectUrl(a, "download");
+    const url = await fetchSignedUrl(a);
     if (!url) return;
     const link = document.createElement("a");
     link.href = url;
     link.download = a.name;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
     link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 5_000);
   };
 
   return (
