@@ -14,8 +14,16 @@ function json(body: unknown, status = 200) {
 }
 
 function extractVideoId(url: string): string | null {
-  const m = url.match(/vimeo\.com\/(\d+)/);
-  return m ? m[1] : null;
+  const patterns = [
+    /player\.vimeo\.com\/video\/(\d+)/,
+    /vimeo\.com\/video\/(\d+)/,
+    /vimeo\.com\/(?:channels\/[^/]+\/|groups\/[^/]+\/videos\/)?(\d+)/,
+  ];
+  for (const p of patterns) {
+    const m = url.match(p);
+    if (m) return m[1];
+  }
+  return null;
 }
 
 function parseCaptionFile(text: string): string {
