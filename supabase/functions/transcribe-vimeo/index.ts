@@ -106,4 +106,4 @@ async function transcribe(blob: Blob, filename: string, groqKey: string): Promis
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
-const err = (error: string, status: number) => json({ error }, status)
+  const err = (error: string, _status?: number) => json({ error }, 200)
