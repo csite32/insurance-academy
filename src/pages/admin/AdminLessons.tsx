@@ -265,8 +265,7 @@ const AdminLessons = () => {
       const { data: tData, error: tErr } = await supabase.functions.invoke('transcribe-vimeo', {
         body: { vimeo_url: vimeoUrl, groq_key: groqKey },
       });
-      if (tErr) throw new Error(tErr.message);
-  if (tErr) {
+      if (tErr) {
     const serverError = (tData as { error?: string })?.error;
     throw new Error(serverError || tErr.message);
   }
