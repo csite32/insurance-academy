@@ -8,6 +8,8 @@ export type Attachment = {
   url: string;
   icon: LucideIcon;
   isLink?: boolean;
+  storagePath?: string;
+  lessonId?: string;
 };
 
 export type QuizQuestion = {

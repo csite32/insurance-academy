@@ -14,17 +14,32 @@ const parseAttachment = (raw: string, lessonId: string, i: number): Attachment =
     if (raw.trim().startsWith("{")) {
       const o = JSON.parse(raw) as { name?: string; url?: string; type?: string };
       const type = o.type ?? "link";
+      const url = o.url ?? "#";
+      const storagePath = extractStoragePath(url);
       return {
         id: `${lessonId}-att-${i}`,
         name: o.name ?? "קובץ",
-        url: o.url ?? "#",
+        url,
         icon: iconForType(type),
-        isLink: type === "link",
+        isLink: type === "link" && !storagePath,
+        storagePath: storagePath ?? undefined,
+        lessonId,
       };
     }
   } catch { /* fall through */ }
-  return { id: `${lessonId}-att-${i}`, name: raw, url: "#", icon: FileText };
+  return { id: `${lessonId}-att-${i}`, name: raw, url: "#", icon: FileText, lessonId };
 };
+
+const PUBLIC_URL_RE = /\/storage\/v1\/object\/public\/lesson-attachments\/(.+)$/;
+function extractStoragePath(url: string): string | null {
+  if (!url) return null;
+  if (url.startsWith("storage:")) return url.slice("storage:".length);
+  const m = url.match(PUBLIC_URL_RE);
+  if (m) {
+    try { return decodeURIComponent(m[1]); } catch { return m[1]; }
+  }
+  return null;
+}
 
 const toLesson = (l: AdminLesson): Lesson => {
   const attachments: Attachment[] = (l.attachments ?? []).map((raw, i) =>
