@@ -24,6 +24,38 @@ function extractPath(raw: string): string | null {
   return null;
 }
 
+const EXT_MIME: Record<string, string> = {
+  pdf: "application/pdf",
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+  svg: "image/svg+xml",
+  txt: "text/plain; charset=utf-8",
+  csv: "text/csv; charset=utf-8",
+  doc: "application/msword",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xls: "application/vnd.ms-excel",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ppt: "application/vnd.ms-powerpoint",
+  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  zip: "application/zip",
+  mp4: "video/mp4",
+  mp3: "audio/mpeg",
+};
+
+function guessMime(name: string): string {
+  const ext = name.split(".").pop()?.toLowerCase() ?? "";
+  return EXT_MIME[ext] ?? "application/octet-stream";
+}
+
+function encodeFilename(name: string): string {
+  const ascii = name.replace(/[^\x20-\x7E]+/g, "_").replace(/"/g, "");
+  const utf8 = encodeURIComponent(name);
+  return `filename="${ascii}"; filename*=UTF-8''${utf8}`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -45,7 +77,7 @@ Deno.serve(async (req) => {
     if (claimsErr || !claims?.claims?.sub) return json({ error: "Unauthenticated" }, 200);
     const userId = claims.claims.sub as string;
 
-    let body: { lessonId?: string; path?: string };
+    let body: { lessonId?: string; path?: string; mode?: string };
     try {
       body = await req.json();
     } catch {
@@ -53,6 +85,10 @@ Deno.serve(async (req) => {
     }
     const lessonId = (body?.lessonId ?? "").toString().trim();
     const reqPath = (body?.path ?? "").toString().trim();
+    const mode = ((body?.mode ?? "url").toString().trim().toLowerCase()) as
+      | "view"
+      | "download"
+      | "url";
     if (!lessonId || !reqPath) return json({ error: "Missing lessonId or path" }, 200);
     if (reqPath.includes("..") || reqPath.startsWith("/")) {
       return json({ error: "Invalid path" }, 200);
@@ -116,6 +152,30 @@ Deno.serve(async (req) => {
         allowed = !!aRow;
       }
       if (!allowed) return json({ error: "Forbidden" }, 200);
+    }
+
+    if (mode === "view" || mode === "download") {
+      const { data: blob, error: dErr } = await admin.storage
+        .from("lesson-attachments")
+        .download(reqPath);
+      if (dErr || !blob) {
+        return json({ error: dErr?.message ?? "Failed to download" }, 200);
+      }
+      const fileName = reqPath.split("/").pop() || "file";
+      const contentType = blob.type && blob.type !== "application/octet-stream"
+        ? blob.type
+        : guessMime(fileName);
+      const disposition = `${mode === "view" ? "inline" : "attachment"}; ${encodeFilename(fileName)}`;
+      return new Response(blob, {
+        status: 200,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": contentType,
+          "Content-Disposition": disposition,
+          "Cache-Control": "private, max-age=0, no-store",
+          "Access-Control-Expose-Headers": "Content-Disposition",
+        },
+      });
     }
 
     const { data: signed, error: sErr } = await admin.storage
