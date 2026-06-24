@@ -265,8 +265,11 @@ const AdminLessons = () => {
       const { data: tData, error: tErr } = await supabase.functions.invoke('transcribe-vimeo', {
         body: { vimeo_url: vimeoUrl, groq_key: groqKey },
       });
-      if (tErr) throw new Error(tErr.message);
-      if ((tData as { error?: string })?.error) throw new Error((tData as { error: string }).error);
+      if (tErr) {
+    const serverError = (tData as { error?: string })?.error;
+    throw new Error(serverError || tErr.message);
+  }
+  if ((tData as { error?: string })?.error) throw new Error((tData as { error: string }).error);
 
       setAiStatus("יוצר שאלות עם AI...");
       const prompt = `צור חידון של 5 שאלות רב-ברירה בעברית בהתבסס על התמלול הבא.
