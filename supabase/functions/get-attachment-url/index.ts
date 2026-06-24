@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
     if (claimsErr || !claims?.claims?.sub) return json({ error: "Unauthenticated" }, 200);
     const userId = claims.claims.sub as string;
 
-    let body: { lessonId?: string; path?: string };
+    let body: { lessonId?: string; path?: string; mode?: string };
     try {
       body = await req.json();
     } catch {
@@ -85,6 +85,7 @@ Deno.serve(async (req) => {
     }
     const lessonId = (body?.lessonId ?? "").toString().trim();
     const reqPath = (body?.path ?? "").toString().trim();
+    const mode = body?.mode === "view" || body?.mode === "download" ? body.mode : "url";
     if (!lessonId || !reqPath) return json({ error: "Missing lessonId or path" }, 200);
     if (reqPath.includes("..") || reqPath.startsWith("/")) {
       return json({ error: "Invalid path" }, 200);
@@ -148,6 +149,30 @@ Deno.serve(async (req) => {
         allowed = !!aRow;
       }
       if (!allowed) return json({ error: "Forbidden" }, 200);
+    }
+
+    if (mode === "view" || mode === "download") {
+      const { data: file, error: dErr } = await admin.storage
+        .from("lesson-attachments")
+        .download(reqPath);
+
+      if (dErr || !file) {
+        return json({ error: dErr?.message ?? "Failed to download" }, 200);
+      }
+
+      const fileName = reqPath.split("/").pop() || "attachment";
+      const disposition = mode === "download" ? "attachment" : "inline";
+
+      return new Response(file, {
+        status: 200,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": file.type || guessMime(fileName),
+          "Content-Disposition": `${disposition}; ${encodeFilename(fileName)}`,
+          "Cache-Control": "private, max-age=0",
+          "Access-Control-Expose-Headers": "Content-Disposition, Content-Type",
+        },
+      });
     }
 
     const { data: signed, error: sErr } = await admin.storage

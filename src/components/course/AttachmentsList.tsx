@@ -22,7 +22,7 @@ const fileTypeLabel = (name: string) => {
 const AttachmentsList = ({ items, lessonId }: { items: Attachment[]; lessonId?: string }) => {
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  const fetchSignedUrl = async (a: Attachment): Promise<string | null> => {
+  const fetchAttachmentBlobUrl = async (a: Attachment, mode: "view" | "download"): Promise<string | null> => {
     const lid = lessonId ?? a.lessonId;
     if (!a.storagePath || !lid) return null;
     setBusyId(a.id);
@@ -45,10 +45,12 @@ const AttachmentsList = ({ items, lessonId }: { items: Attachment[]; lessonId?: 
           Authorization: `Bearer ${accessToken}`,
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
-        body: JSON.stringify({ lessonId: lid, path: a.storagePath }),
+        body: JSON.stringify({ lessonId: lid, path: a.storagePath, mode }),
       });
-      const j = await res.json().catch(() => null);
-      if (!res.ok || !j?.url) {
+
+      const contentType = res.headers.get("Content-Type") ?? "";
+      if (!res.ok || contentType.includes("application/json")) {
+        const j = await res.json().catch(() => null);
         toast({
           title: "לא ניתן לפתוח את הקובץ",
           description: j?.error ?? "שגיאה",
@@ -56,7 +58,9 @@ const AttachmentsList = ({ items, lessonId }: { items: Attachment[]; lessonId?: 
         });
         return null;
       }
-      return j.url as string;
+
+      const blob = await res.blob();
+      return URL.createObjectURL(blob);
     } catch (e) {
       toast({
         title: "שגיאה",
@@ -74,9 +78,10 @@ const AttachmentsList = ({ items, lessonId }: { items: Attachment[]; lessonId?: 
       window.open(a.url, "_blank", "noopener,noreferrer");
       return;
     }
-    const url = await fetchSignedUrl(a);
+    const url = await fetchAttachmentBlobUrl(a, "view");
     if (!url) return;
     window.open(url, "_blank", "noopener,noreferrer");
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
 
   const handleDownload = async (a: Attachment) => {
@@ -87,14 +92,15 @@ const AttachmentsList = ({ items, lessonId }: { items: Attachment[]; lessonId?: 
       link.click();
       return;
     }
-    const url = await fetchSignedUrl(a);
+    const url = await fetchAttachmentBlobUrl(a, "download");
     if (!url) return;
     const link = document.createElement("a");
     link.href = url;
     link.download = a.name;
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
+    document.body.appendChild(link);
     link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
   };
 
   return (
