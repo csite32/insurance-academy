@@ -9,6 +9,7 @@ import Course from "./pages/Course.tsx";
 import Login from "./pages/Login.tsx";
 import ResetPassword from "./pages/ResetPassword.tsx";
 import Profile from "./pages/Profile.tsx";
+import AccessibilityStatement from "./pages/AccessibilityStatement.tsx";
 import AdminDashboard from "./pages/admin/AdminDashboard.tsx";
 import AdminCourses from "./pages/admin/AdminCourses.tsx";
 import AdminChapters from "./pages/admin/AdminChapters.tsx";
@@ -18,6 +19,7 @@ import AdminAssignments from "./pages/admin/AdminAssignments.tsx";
 import AdminProtectedRoute from "./components/admin/AdminProtectedRoute";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
+import AccessibilityWidget from "./components/accessibility/AccessibilityWidget";
 
 const queryClient = new QueryClient();
 
@@ -28,9 +30,11 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <AccessibilityWidget />
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/accessibility" element={<AccessibilityStatement />} />
             <Route
               path="/"
               element={
