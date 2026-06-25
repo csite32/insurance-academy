@@ -63,6 +63,7 @@ const Footer = () => {
           <ul className="mt-4 space-y-2 text-sm">
             <li><a href="#" className="hover:text-primary transition-colors">מדיניות פרטיות</a></li>
             <li><a href="#" className="hover:text-primary transition-colors">תנאי שימוש</a></li>
+            <li><a href="/accessibility" className="hover:text-primary transition-colors">הצהרת נגישות</a></li>
           </ul>
         </div>
       </div>
