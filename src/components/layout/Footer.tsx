@@ -70,7 +70,14 @@ const Footer = () => {
       <div className="border-t border-white/10">
         <div className="container flex flex-col-reverse items-center justify-between gap-3 py-5 text-xs text-footer-foreground/70 sm:flex-row">
            <span>© 2026 כל הזכויות שמורות · מנדי גפנר סוכנות לביטוח</span>
-           <span>עיצוב ופיתוח אתר: חיה פוגל Csite</span>
+           <a
+             href="https://www.c-site.co.il/"
+             target="_blank"
+             rel="noopener noreferrer"
+             className="hover:text-primary transition-colors"
+           >
+             עיצוב ופיתוח אתר: חיה פוגל Csite
+           </a>
         </div>
       </div>
     </footer>
