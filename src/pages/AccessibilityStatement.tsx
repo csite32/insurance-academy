@@ -57,21 +57,23 @@ const AccessibilityStatement = () => {
           <div className="rounded-lg border border-border bg-card p-4 space-y-2">
             <p>
               <strong>שם מלא:</strong>{" "}
-              <span className="text-muted-foreground">[למילוי על ידי בעל האתר]</span>
+              <span>אלי גפנר</span>
             </p>
             <p>
               <strong>דוא"ל:</strong>{" "}
-              <span className="text-muted-foreground">[למילוי על ידי בעל האתר]</span>
+              <a href="mailto:elig@gefner.co.il" className="text-primary hover:underline">
+                elig@gefner.co.il
+              </a>
             </p>
             <p>
               <strong>טלפון:</strong>{" "}
-              <span className="text-muted-foreground">[למילוי על ידי בעל האתר]</span>
+              <a href="tel:+972555641384" className="text-primary hover:underline">
+                055-5641384
+              </a>
             </p>
             <p>
               <strong>זמן תגובה משוער:</strong>{" "}
-              <span className="text-muted-foreground">
-                [למילוי על ידי בעל האתר — למשל: עד 14 ימי עסקים]
-              </span>
+              <span>עד 14 ימי עסקים</span>
             </p>
           </div>
 
