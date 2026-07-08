@@ -63,7 +63,22 @@ const ChangePasswordDialog = ({ open, onOpenChange }: Props) => {
     setSaving(false);
     if (updateError) {
       console.error("[password] update failed", updateError);
-      setError("שינוי הסיסמה נכשל, נסי שוב");
+      const msg = updateError.message?.toLowerCase() || "";
+      if (
+        msg.includes("weak") ||
+        msg.includes("strength") ||
+        msg.includes("pwned") ||
+        msg.includes("hibp") ||
+        msg.includes("compromised")
+      ) {
+        setError(
+          "הסיסמה חלשה מדי. יש לבחור סיסמה חזקה יותר הכוללת אותיות, מספרים ותו מיוחד."
+        );
+      } else if (msg.includes("same")) {
+        setError("לא ניתן לבחור בסיסמה הזהה לסיסמה הנוכחית.");
+      } else {
+        setError("שינוי הסיסמה נכשל, נסה שוב.");
+      }
       return;
     }
 
