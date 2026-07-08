@@ -10,9 +10,11 @@ import {
   ChevronLeft,
   PlayCircle,
   Sparkles,
+  KeyRound,
 } from "lucide-react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
+import ChangePasswordDialog from "@/components/profile/ChangePasswordDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdminStore, useAdminStoreHydration } from "@/data/adminStore";
 import type { CourseProgress } from "@/hooks/useCourseProgress";
@@ -39,6 +41,7 @@ const Profile = () => {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
   const [dbProgress, setDbProgress] = useState<
     Map<string, { completedLessonIds: string[]; lastLessonId: string | null }>
   >(new Map());
@@ -355,6 +358,13 @@ const Profile = () => {
                     הסרת תמונה
                   </button>
                 )}
+                <button
+                  onClick={() => setPasswordOpen(true)}
+                  className="w-full rounded-full border border-border px-4 py-2 text-xs text-muted-foreground hover:text-foreground transition inline-flex items-center justify-center gap-1.5"
+                >
+                  <KeyRound className="h-3.5 w-3.5" />
+                  שינוי סיסמה
+                </button>
                 {uploadError && (
                   <p className="text-xs text-destructive">{uploadError}</p>
                 )}
@@ -511,6 +521,7 @@ const Profile = () => {
         </section>
       </main>
       <Footer />
+      <ChangePasswordDialog open={passwordOpen} onOpenChange={setPasswordOpen} />
     </div>
   );
 };
