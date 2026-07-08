@@ -96,7 +96,7 @@ const ChangePasswordDialog = ({ open, onOpenChange }: Props) => {
             שינוי סיסמה
           </DialogTitle>
           <DialogDescription>
-            בחרי סיסמה חדשה באורך 8 תווים לפחות.
+            בחר סיסמה חדשה באורך 8 תווים לפחות.
           </DialogDescription>
         </DialogHeader>
 
