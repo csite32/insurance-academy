@@ -1,15 +1,34 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { BookOpen, Users, ListOrdered, PlayCircle, ChevronLeft, Key } from "lucide-react";
+import { BookOpen, Users, ListOrdered, PlayCircle, ChevronLeft, Key, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { useAdminStore } from "@/data/adminStore";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { supabase } from "@/integrations/supabase/client";
 
 const AdminDashboard = () => {
   const { courses, chapters, lessons, users } = useAdminStore((s) => s);
-  const [groqKey, setGroqKey] = useState(() => localStorage.getItem('groq_api_key') ?? '');
-  const [vimeoToken, setVimeoToken] = useState(() => localStorage.getItem('vimeo_token') ?? '');
+  const [status, setStatus] = useState<{ groq: boolean; vimeo: boolean } | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Migration: purge any legacy keys that used to live in the browser.
+    try {
+      localStorage.removeItem('groq_api_key');
+      localStorage.removeItem('vimeo_token');
+    } catch { /* ignore */ }
+
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase.functions.invoke('ai-secrets-status');
+      if (cancelled) return;
+      if (error) {
+        setStatusError('לא ניתן לבדוק את סטטוס המפתחות בשרת');
+        return;
+      }
+      setStatus(data as { groq: boolean; vimeo: boolean });
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const stats = [
     { label: "קורסים", value: courses.length, icon: BookOpen },
@@ -103,35 +122,47 @@ const AdminDashboard = () => {
       <section className="mt-6 rounded-2xl border border-border bg-card p-6 shadow-card">
         <div className="flex items-center gap-2 mb-4">
           <Key className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-bold">הגדרות API</h2>
+          <h2 className="text-lg font-bold">סטטוס מפתחות API</h2>
         </div>
-        <div className="max-w-md space-y-4">
-          <div className="space-y-1.5">
-            <Label>Groq API Key (לתמלול וחידון AI)</Label>
-            <Input
-              type="password" dir="ltr" placeholder="gsk_..."
-              value={groqKey}
-              onChange={e => { setGroqKey(e.target.value); localStorage.setItem('groq_api_key', e.target.value); }}
-            />
-            <p className="text-xs text-muted-foreground">
-              מפתח חינמי בכתובת console.groq.com/keys — נשמר במכשיר זה בלבד, לא נשלח לשרת.
+        <p className="text-xs text-muted-foreground mb-4">
+          המפתחות מאוחסנים בצד השרת בלבד (Supabase Secrets) ואינם נחשפים לדפדפן.
+          לעדכון או החלפה יש לפנות לניהול ה-Secrets בפרויקט.
+        </p>
+        <div className="max-w-md space-y-3">
+          <SecretRow label="Groq API Key (GROQ_API_KEY)" state={status?.groq} loading={status === null && !statusError} />
+          <SecretRow label="Vimeo API Token (VIMEO_API_TOKEN)" state={status?.vimeo} loading={status === null && !statusError} />
+          {statusError && (
+            <p className="text-sm text-destructive flex items-center gap-1.5">
+              <AlertCircle className="h-4 w-4" />
+              {statusError}
             </p>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Vimeo API Token</Label>
-            <Input
-              type="password" dir="ltr" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-              value={vimeoToken}
-              onChange={e => { setVimeoToken(e.target.value); localStorage.setItem('vimeo_token', e.target.value); }}
-            />
-            <p className="text-xs text-muted-foreground">
-              מפתח API של Vimeo Premium — נדרש לקריאת כתוביות הסרטונים. נשמר במכשיר זה בלבד.
-            </p>
-          </div>
+          )}
         </div>
       </section>
     </AdminLayout>
   );
 };
+
+const SecretRow = ({ label, state, loading }: { label: string; state?: boolean; loading: boolean }) => (
+  <div className="flex items-center justify-between rounded-xl border border-border bg-muted/30 px-4 py-3">
+    <span className="text-sm font-medium">{label}</span>
+    {loading ? (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        בודק...
+      </span>
+    ) : state ? (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+        <CheckCircle2 className="h-3.5 w-3.5" />
+        מוגדר
+      </span>
+    ) : (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-1 text-[11px] font-semibold text-red-700">
+        <AlertCircle className="h-3.5 w-3.5" />
+        לא מוגדר
+      </span>
+    )}
+  </div>
+);
 
 export default AdminDashboard;

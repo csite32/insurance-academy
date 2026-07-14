@@ -44,10 +44,16 @@ serve(async (req) => {
   }
 
   try {
-    const { vimeo_url, vimeo_token } = await req.json();
+    const { vimeo_url } = await req.json();
 
     if (!vimeo_url) return json({ error: "חסר קישור Vimeo" }, 400);
-    if (!vimeo_token) return json({ error: "חסר Vimeo API Token" }, 400);
+    const vimeo_token = Deno.env.get("VIMEO_API_TOKEN");
+    if (!vimeo_token) {
+      return json(
+        { error: "מפתח VIMEO_API_TOKEN לא הוגדר בשרת. יש להגדירו ב-Supabase Secrets." },
+        500,
+      );
+    }
     if (!vimeo_url.includes("vimeo.com") && !vimeo_url.includes("player.vimeo")) {
       return json({ error: "הקישור אינו קישור Vimeo תקין" }, 400);
     }

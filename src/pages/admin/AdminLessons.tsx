@@ -249,17 +249,7 @@ const AdminLessons = () => {
   const [aiStatus, setAiStatus] = useState<string | null>(null);
 
   const generateQuiz = async () => {
-    const groqKey = localStorage.getItem('groq_api_key') ?? '';
-    const vimeoToken = localStorage.getItem('vimeo_token') ?? '';
     const vimeoUrl = form.videoUrl.trim();
-    if (!groqKey) {
-      toast({ title: "יש להגדיר Groq API Key בדשבורד", variant: "destructive" });
-      return;
-    }
-    if (!vimeoToken) {
-      toast({ title: "יש להגדיר Vimeo API Token בדשבורד", variant: "destructive" });
-      return;
-    }
     if (!vimeoUrl) {
       toast({ title: "יש להוסיף קישור Vimeo לשיעור לפני יצירת חידון", variant: "destructive" });
       return;
@@ -268,7 +258,7 @@ const AdminLessons = () => {
     setAiStatus("מוריד כתוביות מהסרטון...");
     try {
       const { data: tData, error: tErr } = await supabase.functions.invoke('vimeo-transcribe', {
-        body: { vimeo_url: vimeoUrl, vimeo_token: vimeoToken },
+        body: { vimeo_url: vimeoUrl },
       });
       if (tErr) {
     const serverError = (tData as { error?: string })?.error;
@@ -277,24 +267,15 @@ const AdminLessons = () => {
   if ((tData as { error?: string })?.error) throw new Error((tData as { error: string }).error);
 
       setAiStatus("יוצר שאלות עם AI...");
-      const prompt = `צור חידון של 5 שאלות רב-ברירה בעברית בהתבסס על התמלול הבא.
-החזר JSON בלבד. פורמט: [{"q":"שאלה","o":["א","ב","ג","ד"],"a":0,"f":["פידבק א","פידבק ב","פידבק ג","פידבק ד"]}]
-כללים: a = אינדקס התשובה הנכונה (0-3). f = 4 פידבקים אחד לכל תשובה. הכל בעברית.
-תמלול:\n${((tData as { transcript?: string }).transcript ?? '').slice(0, 6000)}`;
-
-      const qRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${groqKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.2,
-          response_format: { type: 'json_object' },
-        }),
+      const { data: qData, error: qErr } = await supabase.functions.invoke('generate-quiz', {
+        body: { transcript: (tData as { transcript?: string }).transcript ?? '' },
       });
-      if (!qRes.ok) throw new Error('Groq API error: ' + qRes.statusText);
-      const qData = await qRes.json() as { choices: { message: { content: string } }[] };
-      let parsed = JSON.parse(qData.choices[0].message.content.trim()) as
+      if (qErr) {
+        const serverError = (qData as { error?: string })?.error;
+        throw new Error(serverError || qErr.message);
+      }
+      if ((qData as { error?: string })?.error) throw new Error((qData as { error: string }).error);
+      let parsed = JSON.parse((qData as { content: string }).content) as
         Array<{ q: string; o: string[]; a: number; f?: string[] }> | Record<string, unknown>;
       if (!Array.isArray(parsed)) {
         parsed = (parsed as Record<string, unknown>).questions as typeof parsed
