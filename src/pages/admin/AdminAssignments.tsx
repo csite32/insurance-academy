@@ -353,17 +353,55 @@ const AdminAssignments = () => {
                               .filter((l) => l.chapterId === chapter.id)
                               .slice()
                               .sort((a, b) => a.order - b.order);
+                            const chapterLessonIds = chapterLessons.map((l) => l.id);
+                            const selectedInChapter = chapterLessonIds.filter((id) =>
+                              draftLessons.has(id)
+                            ).length;
+                            const allChapterSelected =
+                              chapterLessonIds.length > 0 &&
+                              selectedInChapter === chapterLessonIds.length;
+                            const someChapterSelected =
+                              selectedInChapter > 0 && !allChapterSelected;
+                            const toggleChapter = (checked: boolean) => {
+                              // Manual chapter edit cancels "full course" mode
+                              setDraftFullCourses((prev) => {
+                                if (!prev.has(c.id)) return prev;
+                                const n = new Set(prev);
+                                n.delete(c.id);
+                                return n;
+                              });
+                              setDraftLessons((prev) => {
+                                const n = new Set(prev);
+                                if (checked) chapterLessonIds.forEach((id) => n.add(id));
+                                else chapterLessonIds.forEach((id) => n.delete(id));
+                                return n;
+                              });
+                            };
                             return (
                               <div key={chapter.id} className="space-y-1.5">
-                                <p className="text-sm font-semibold text-muted-foreground">
-                                  {chapter.title}
-                                </p>
+                                <div className="flex items-center gap-3">
+                                  <Checkbox
+                                    checked={
+                                      allChapterSelected
+                                        ? true
+                                        : someChapterSelected
+                                          ? "indeterminate"
+                                          : false
+                                    }
+                                    onCheckedChange={(v) => toggleChapter(v === true)}
+                                    disabled={chapterLessonIds.length === 0}
+                                    aria-label={`שייך את פרק ${chapter.title}`}
+                                  />
+                                  <p className="text-sm font-semibold text-muted-foreground">
+                                    {chapter.title}
+                                  </p>
+                                </div>
                                 {chapterLessons.length === 0 ? (
-                                  <p className="pr-6 text-xs text-muted-foreground">
+                                  <p className="pr-10 text-xs text-muted-foreground">
                                     אין שיעורים
                                   </p>
                                 ) : (
-                                  <ul className="space-y-1">
+                                  <ul className="space-y-1 pr-6">
                                     {chapterLessons.map((l) => {
                                       const checked = draftLessons.has(l.id);
                                       return (
