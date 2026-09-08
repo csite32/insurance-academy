@@ -250,6 +250,10 @@ const AdminLessons = () => {
   // Holds an AI-generated lesson-content paragraph that was NOT auto-applied
   // because the field already had manually written text. The admin decides.
   const [aiLessonContent, setAiLessonContent] = useState<string | null>(null);
+  // Lesson-content generation is a fully independent action from quiz generation
+  // (separate button, separate edge function, own loading/status).
+  const [contentLoading, setContentLoading] = useState(false);
+  const [contentStatus, setContentStatus] = useState<string | null>(null);
 
   const generateQuiz = async () => {
     const vimeoUrl = form.videoUrl.trim();
@@ -269,7 +273,7 @@ const AdminLessons = () => {
   }
   if ((tData as { error?: string })?.error) throw new Error((tData as { error: string }).error);
 
-      setAiStatus("מנתח את התוכן ויוצר תקציר וחידון...");
+      setAiStatus("יוצר שאלות עם AI...");
       const { data: qData, error: qErr } = await supabase.functions.invoke('generate-quiz', {
         body: { transcript: (tData as { transcript?: string }).transcript ?? '' },
       });
@@ -282,13 +286,8 @@ const AdminLessons = () => {
       type QuizRaw = { q: string; o: string[]; a: number; f?: string[] };
       const result = JSON.parse((qData as { content: string }).content) as
         | QuizRaw[]
-        | { lessonContent?: string; quiz?: QuizRaw[]; questions?: QuizRaw[] };
-      // The edge function now returns { lessonContent, quiz }. Stay tolerant of the
-      // legacy shapes (bare array / { questions }) in case of a stale deployment.
-      const aiSummary =
-        !Array.isArray(result) && typeof result.lessonContent === 'string'
-          ? result.lessonContent.trim()
-          : '';
+        | { quiz?: QuizRaw[]; questions?: QuizRaw[] };
+      // generate-quiz returns { questions, quiz }; also tolerate a bare array.
       const quizRaw: QuizRaw[] = Array.isArray(result)
         ? result
         : result.quiz ?? result.questions ?? [];
@@ -302,29 +301,70 @@ const AdminLessons = () => {
         wrongFeedback: DEFAULT_WRONG_FEEDBACK,
         optionFeedbacks: raw.f,
       }));
-
-      // Lesson content: auto-fill only when the field is empty, so a manually
-      // written / edited "תוכן השיעור" is never overwritten silently.
-      const hadManualContent = form.content.trim().length > 0;
+      // Quiz generation never touches form.content / aiLessonContent.
       setForm((f) => ({
         ...f,
         quizQuestions: questions,
         quizTitle: f.quizTitle.trim() || 'חידון השיעור',
-        content: aiSummary && !f.content.trim() ? aiSummary : f.content,
       }));
-      setAiLessonContent(aiSummary && hadManualContent ? aiSummary : null);
-
       setAiStatus(null);
-      const contentNote = aiSummary
-        ? hadManualContent
-          ? ' · תקציר תוכן חדש ממתין לאישור'
-          : ' · תוכן השיעור עודכן אוטומטית'
-        : '';
-      toast({ title: `נוצרו ${questions.length} שאלות בהצלחה${contentNote}` });
+      toast({ title: `נוצרו ${questions.length} שאלות בהצלחה` });
     } catch (e) {
       setAiStatus(`שגיאה: ${(e as Error).message}`);
     } finally {
       setAiLoading(false);
+    }
+  };
+
+  const generateLessonContent = async () => {
+    const vimeoUrl = form.videoUrl.trim();
+    if (!vimeoUrl) {
+      toast({ title: "יש להוסיף קישור וידאו לפני יצירת התוכן", variant: "destructive" });
+      return;
+    }
+    setContentLoading(true);
+    setContentStatus("מוריד כתוביות מהסרטון...");
+    try {
+      const { data: tData, error: tErr } = await supabase.functions.invoke('vimeo-transcribe', {
+        body: { vimeo_url: vimeoUrl },
+      });
+      if (tErr) {
+        const serverError = (tData as { error?: string })?.error;
+        throw new Error(serverError || tErr.message);
+      }
+      if ((tData as { error?: string })?.error) throw new Error((tData as { error: string }).error);
+
+      setContentStatus("יוצר תוכן מהסרטון...");
+      const { data: cData, error: cErr } = await supabase.functions.invoke('generate-lesson-content', {
+        body: { transcript: (tData as { transcript?: string }).transcript ?? '' },
+      });
+      if (cErr) {
+        const serverError = (cData as { error?: string })?.error;
+        throw new Error(serverError || cErr.message);
+      }
+      if ((cData as { error?: string })?.error) throw new Error((cData as { error: string }).error);
+
+      const aiSummary = ((cData as { content?: string }).content ?? '').trim();
+      if (!aiSummary) throw new Error('לא התקבל תוכן מהשרת');
+
+      // Empty field -> fill it. Existing text -> offer "החלף / התעלם", never overwrite.
+      const hadManualContent = form.content.trim().length > 0;
+      setForm((f) => ({
+        ...f,
+        content: !f.content.trim() ? aiSummary : f.content,
+      }));
+      setAiLessonContent(hadManualContent ? aiSummary : null);
+
+      setContentStatus(null);
+      toast({
+        title: hadManualContent
+          ? "נוצר תוכן חדש — ממתין לאישור"
+          : "תוכן השיעור נוצר בהצלחה",
+      });
+    } catch (e) {
+      setContentStatus(`שגיאה: ${(e as Error).message}`);
+    } finally {
+      setContentLoading(false);
     }
   };
 
@@ -428,6 +468,7 @@ const AdminLessons = () => {
     setErrors({});
     setQuizError(null);
     setAiLessonContent(null);
+    setContentStatus(null);
     setCreating(true);
   };
 
@@ -455,6 +496,7 @@ const AdminLessons = () => {
     setErrors({});
     setQuizError(null);
     setAiLessonContent(null);
+    setContentStatus(null);
     setEditing(l);
   };
 
@@ -689,12 +731,34 @@ const AdminLessons = () => {
               />
             </div>
             <div className="space-y-1.5">
-              <Label>תוכן השיעור</Label>
+              <div className="flex items-center justify-between">
+                <Label>תוכן השיעור</Label>
+                <Button
+                  type="button" size="sm" disabled={contentLoading} onClick={generateLessonContent}
+                  className="gap-1.5 rounded-full bg-primary/10 text-primary border border-primary/25 hover:bg-primary/20 shadow-none"
+                  variant="outline"
+                >
+                  {contentLoading
+                    ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />יוצר...</>
+                    : <><Sparkles className="h-3.5 w-3.5" />צור תוכן מהסרטון</>}
+                </Button>
+              </div>
               <Textarea
                 value={form.content}
                 onChange={(e) => setForm({ ...form, content: e.target.value })}
                 rows={4}
               />
+              {contentStatus && (
+                <div className={cn(
+                  "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm",
+                  contentLoading
+                    ? "border-primary/20 bg-primary/5 text-primary"
+                    : "border-destructive/20 bg-destructive/5 text-destructive"
+                )}>
+                  {contentLoading && <Loader2 className="h-3 w-3 animate-spin flex-shrink-0" />}
+                  {contentStatus}
+                </div>
+              )}
               {aiLessonContent && (
                 <div className="space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-2.5 text-xs">
                   <p className="font-semibold text-primary">
