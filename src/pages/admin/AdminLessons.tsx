@@ -247,6 +247,9 @@ const AdminLessons = () => {
   const pendingUploadIdx = useRef<number | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiStatus, setAiStatus] = useState<string | null>(null);
+  // Holds an AI-generated lesson-content paragraph that was NOT auto-applied
+  // because the field already had manually written text. The admin decides.
+  const [aiLessonContent, setAiLessonContent] = useState<string | null>(null);
 
   const generateQuiz = async () => {
     const vimeoUrl = form.videoUrl.trim();
@@ -266,7 +269,7 @@ const AdminLessons = () => {
   }
   if ((tData as { error?: string })?.error) throw new Error((tData as { error: string }).error);
 
-      setAiStatus("יוצר שאלות עם AI...");
+      setAiStatus("מנתח את התוכן ויוצר תקציר וחידון...");
       const { data: qData, error: qErr } = await supabase.functions.invoke('generate-quiz', {
         body: { transcript: (tData as { transcript?: string }).transcript ?? '' },
       });
@@ -275,29 +278,49 @@ const AdminLessons = () => {
         throw new Error(serverError || qErr.message);
       }
       if ((qData as { error?: string })?.error) throw new Error((qData as { error: string }).error);
-      let parsed = JSON.parse((qData as { content: string }).content) as
-        Array<{ q: string; o: string[]; a: number; f?: string[] }> | Record<string, unknown>;
-      if (!Array.isArray(parsed)) {
-        parsed = (parsed as Record<string, unknown>).questions as typeof parsed
-               ?? Object.values(parsed)[0] as typeof parsed;
-      }
-      const questions: QuizQuestionData[] = (parsed as Array<{ q: string; o: string[]; a: number; f?: string[] }>)
-        .map((raw) => ({
-          id: `ai-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`,
-          question: raw.q,
-          answers: raw.o,
-          correctAnswer: raw.o[raw.a] ?? raw.o[0] ?? '',
-          correctFeedback: raw.f?.[raw.a] ?? DEFAULT_CORRECT_FEEDBACK,
-          wrongFeedback: DEFAULT_WRONG_FEEDBACK,
-          optionFeedbacks: raw.f,
-        }));
+
+      type QuizRaw = { q: string; o: string[]; a: number; f?: string[] };
+      const result = JSON.parse((qData as { content: string }).content) as
+        | QuizRaw[]
+        | { lessonContent?: string; quiz?: QuizRaw[]; questions?: QuizRaw[] };
+      // The edge function now returns { lessonContent, quiz }. Stay tolerant of the
+      // legacy shapes (bare array / { questions }) in case of a stale deployment.
+      const aiSummary =
+        !Array.isArray(result) && typeof result.lessonContent === 'string'
+          ? result.lessonContent.trim()
+          : '';
+      const quizRaw: QuizRaw[] = Array.isArray(result)
+        ? result
+        : result.quiz ?? result.questions ?? [];
+
+      const questions: QuizQuestionData[] = quizRaw.map((raw) => ({
+        id: `ai-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`,
+        question: raw.q,
+        answers: raw.o,
+        correctAnswer: raw.o[raw.a] ?? raw.o[0] ?? '',
+        correctFeedback: raw.f?.[raw.a] ?? DEFAULT_CORRECT_FEEDBACK,
+        wrongFeedback: DEFAULT_WRONG_FEEDBACK,
+        optionFeedbacks: raw.f,
+      }));
+
+      // Lesson content: auto-fill only when the field is empty, so a manually
+      // written / edited "תוכן השיעור" is never overwritten silently.
+      const hadManualContent = form.content.trim().length > 0;
       setForm((f) => ({
         ...f,
         quizQuestions: questions,
         quizTitle: f.quizTitle.trim() || 'חידון השיעור',
+        content: aiSummary && !f.content.trim() ? aiSummary : f.content,
       }));
+      setAiLessonContent(aiSummary && hadManualContent ? aiSummary : null);
+
       setAiStatus(null);
-      toast({ title: `נוצרו ${questions.length} שאלות בהצלחה` });
+      const contentNote = aiSummary
+        ? hadManualContent
+          ? ' · תקציר תוכן חדש ממתין לאישור'
+          : ' · תוכן השיעור עודכן אוטומטית'
+        : '';
+      toast({ title: `נוצרו ${questions.length} שאלות בהצלחה${contentNote}` });
     } catch (e) {
       setAiStatus(`שגיאה: ${(e as Error).message}`);
     } finally {
@@ -404,6 +427,7 @@ const AdminLessons = () => {
     });
     setErrors({});
     setQuizError(null);
+    setAiLessonContent(null);
     setCreating(true);
   };
 
@@ -430,6 +454,7 @@ const AdminLessons = () => {
     });
     setErrors({});
     setQuizError(null);
+    setAiLessonContent(null);
     setEditing(l);
   };
 
@@ -670,6 +695,35 @@ const AdminLessons = () => {
                 onChange={(e) => setForm({ ...form, content: e.target.value })}
                 rows={4}
               />
+              {aiLessonContent && (
+                <div className="space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-2.5 text-xs">
+                  <p className="font-semibold text-primary">
+                    ה-AI יצר תקציר תוכן חדש לשיעור. התוכן הקיים לא נדרס.
+                  </p>
+                  <p className="whitespace-pre-wrap text-muted-foreground">{aiLessonContent}</p>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setForm((f) => ({ ...f, content: aiLessonContent }));
+                        setAiLessonContent(null);
+                      }}
+                    >
+                      החלף את התוכן הקיים
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setAiLessonContent(null)}
+                    >
+                      התעלם
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-6">
               <label className="flex items-center gap-2 text-sm">
