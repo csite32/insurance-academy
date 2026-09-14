@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import VideoPlayer from "./VideoPlayer";
 import AttachmentsList from "./AttachmentsList";
 import Quiz from "./Quiz";
+import RichContent from "@/components/ui/rich-content";
 import {
   Accordion,
   AccordionContent,
@@ -41,7 +42,7 @@ const LessonContent = ({
     {lesson.videoUrl && <VideoPlayer url={lesson.videoUrl} title={lesson.title} />}
 
     <section className="rounded-2xl border border-border bg-card p-5 shadow-card">
-      <p className="leading-7 text-foreground/90">{lesson.content}</p>
+      <RichContent content={lesson.content} />
     </section>
 
     {lesson.attachments && lesson.attachments.length > 0 && (
