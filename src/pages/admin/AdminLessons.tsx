@@ -39,6 +39,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import type { QuizData, QuizQuestionData } from "@/lib/db/lessonsDb";
 import { cn } from "@/lib/utils";
+import RichTextEditor from "@/components/admin/RichTextEditor";
 
 type FormState = {
   title: string;
@@ -743,10 +744,9 @@ const AdminLessons = () => {
                     : <><Sparkles className="h-3.5 w-3.5" />צור תוכן מהסרטון</>}
                 </Button>
               </div>
-              <Textarea
+              <RichTextEditor
                 value={form.content}
-                onChange={(e) => setForm({ ...form, content: e.target.value })}
-                rows={4}
+                onChange={(html) => setForm((f) => ({ ...f, content: html }))}
               />
               {contentStatus && (
                 <div className={cn(
