@@ -32,6 +32,8 @@ import {
   type CourseRow,
 } from "@/lib/courseRows";
 
+const courseCardTones = ["course-card--orange", "course-card--olive", "course-card--yellow"] as const;
+
 const Profile = () => {
   useAdminStoreHydration();
   const { user, loading: authLoading, uploadAvatar, removeAvatar } = useAuth();
@@ -459,6 +461,12 @@ const Profile = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
               {rows.map((row) => {
                 const Icon = row.icon;
+                const tone = courseCardTones[
+                  Array.from(row.id).reduce(
+                    (total, character) => total + character.charCodeAt(0),
+                    0
+                  ) % courseCardTones.length
+                ];
                 const ctaLabel =
                   row.status === "completed"
                     ? "צפייה בקורס"
@@ -468,15 +476,16 @@ const Profile = () => {
                 return (
                   <article
                     key={row.id}
-                    className="group flex flex-col rounded-3xl border border-border bg-card p-6 shadow-card transition-all hover:-translate-y-1 hover:border-primary/40 hover:shadow-card-hover"
+                    className={`course-card group relative flex h-full min-h-[21rem] flex-col overflow-hidden rounded-[20px] border border-border bg-card p-[22px] text-right shadow-card transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-card-hover ${tone}`}
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted">
-                        <Icon className="h-6 w-6 text-foreground/80" strokeWidth={1.6} />
+                    <span className="course-card__shape" aria-hidden="true" />
+                    <div className="relative flex items-start justify-between gap-3">
+                      <div className="course-card__icon relative flex h-14 w-14 items-center justify-center rounded-[18px]">
+                        <Icon className="h-7 w-7" strokeWidth={1.8} />
                       </div>
                       <div className="flex flex-wrap items-center justify-end gap-2">
                         {row.accessKind === "partial" && (
-                          <span className="rounded-full bg-primary/10 text-primary px-3 py-1 text-[11px] font-semibold">
+                          <span className="rounded-full bg-accent/40 px-3 py-1 text-[11px] font-semibold text-foreground ring-1 ring-accent/60">
                             שיעורים נבחרים
                           </span>
                         )}
@@ -487,27 +496,29 @@ const Profile = () => {
                         </span>
                       </div>
                     </div>
-                    <h3 className="mt-4 text-lg font-bold">{row.title}</h3>
-                    <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
+                    <h3 className="relative mt-4 text-xl font-bold text-foreground">{row.title}</h3>
+                    <p className="relative mt-2 text-sm leading-relaxed text-muted-foreground line-clamp-2">
                       {row.description}
                     </p>
 
-                    <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
-                      <span>
-                        {row.completedLessons}/{row.totalLessons} שיעורים
-                      </span>
+                    <div className="relative mt-3 flex items-center gap-1.5 text-[13px] text-muted-foreground">
                       <span className="font-semibold text-foreground">{row.percent}%</span>
+                      <span>
+                        ({row.completedLessons}/{row.totalLessons} שיעורים)
+                      </span>
                     </div>
-                    <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div className="relative mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
                       <div
                         className="h-full bg-gradient-primary transition-all duration-700"
                         style={{ width: `${row.percent}%` }}
                       />
                     </div>
 
-                    <CourseActionButton to={`/course/${row.id}`} className="mt-5">
-                      {ctaLabel}
-                    </CourseActionButton>
+                    <div className="relative mt-auto pt-5">
+                      <CourseActionButton to={`/course/${row.id}`} className="w-full">
+                        {ctaLabel}
+                      </CourseActionButton>
+                    </div>
                   </article>
                 );
               })}
