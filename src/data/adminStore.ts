@@ -7,6 +7,16 @@ import {
   HeartPulse,
   Wallet,
   UserCog,
+  Zap,
+  Target,
+  Compass,
+  Lightbulb,
+  Trophy,
+  BriefcaseBusiness,
+  ChartNoAxesCombined,
+  BadgeCheck,
+  BookMarked,
+  GraduationCap,
   type LucideIcon,
 } from "lucide-react";
 import * as coursesDb from "@/lib/db/coursesDb";
@@ -91,10 +101,36 @@ const ICONS: Record<string, LucideIcon> = {
   private: HeartPulse,
   finance: Wallet,
   pension: UserCog,
+  accelerator: Zap,
+  target: Target,
+  compass: Compass,
+  lightbulb: Lightbulb,
+  trophy: Trophy,
+  business: BriefcaseBusiness,
+  growth: ChartNoAxesCombined,
+  certified: BadgeCheck,
+  guide: BookMarked,
+  academy: GraduationCap,
   default: BookOpen,
 };
 
 export const getIcon = (key: string): LucideIcon => ICONS[key] ?? ICONS.default;
+
+const NEW_COURSE_ICON_KEYS = [
+  "target",
+  "compass",
+  "lightbulb",
+  "trophy",
+  "business",
+  "growth",
+  "certified",
+  "guide",
+  "academy",
+] as const;
+
+export const getNextCourseIconKey = (existingKeys: string[]) =>
+  NEW_COURSE_ICON_KEYS.find((key) => !existingKeys.includes(key)) ??
+  NEW_COURSE_ICON_KEYS[existingKeys.length % NEW_COURSE_ICON_KEYS.length];
 
 let state: StoreState = {
   courses: [],
