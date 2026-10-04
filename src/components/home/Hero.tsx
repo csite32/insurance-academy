@@ -18,7 +18,7 @@ const Hero = () => {
           </p>
           <a
             href="#courses"
-            className="course-action-button group/course-action mt-8 inline-flex w-auto text-base font-semibold"
+            className="course-action-button group/course-action mt-8 inline-flex w-auto items-center justify-center text-base font-semibold"
           >
             <span className="course-action-button__label">לכל הקורסים</span>
             <span className="course-action-button__pill" aria-hidden="true">
