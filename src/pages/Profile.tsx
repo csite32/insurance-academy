@@ -7,7 +7,6 @@ import {
   Rocket,
   Trophy,
   Activity,
-  ChevronLeft,
   PlayCircle,
   Sparkles,
   KeyRound,
@@ -15,6 +14,7 @@ import {
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import ChangePasswordDialog from "@/components/profile/ChangePasswordDialog";
+import CourseActionButton from "@/components/course/CourseActionButton";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdminStore, useAdminStoreHydration } from "@/data/adminStore";
 import type { CourseProgress } from "@/hooks/useCourseProgress";
@@ -430,13 +430,12 @@ const Profile = () => {
                   </div>
                 </div>
               </div>
-              <Link
+              <CourseActionButton
                 to={`/course/${continueCourse.id}`}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-glow hover:brightness-110 transition shrink-0"
+                className="w-full shrink-0 sm:w-56"
               >
                 {continueCourse.status === "not_started" ? "התחלת למידה" : "המשך לשיעור"}
-                <ChevronLeft className="h-4 w-4" />
-              </Link>
+              </CourseActionButton>
             </div>
           </section>
         )}
@@ -506,13 +505,9 @@ const Profile = () => {
                       />
                     </div>
 
-                    <Link
-                      to={`/course/${row.id}`}
-                      className="mt-5 inline-flex items-center justify-center gap-2 rounded-full bg-gradient-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-glow hover:brightness-110 transition"
-                    >
+                    <CourseActionButton to={`/course/${row.id}`} className="mt-5">
                       {ctaLabel}
-                      <ChevronLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
-                    </Link>
+                    </CourseActionButton>
                   </article>
                 );
               })}

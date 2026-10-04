@@ -151,6 +151,62 @@
   .shadow-card-hover { box-shadow: var(--shadow-card-hover); }
   .shadow-glow { box-shadow: var(--shadow-glow); }
 
+  .course-action-button {
+    position: relative;
+    width: 100%;
+    height: 3rem;
+    overflow: hidden;
+    border: 0;
+    border-radius: 9999px;
+    padding: 0 3.25rem;
+    background-image: var(--gradient-primary);
+    color: hsl(var(--primary-foreground));
+    box-shadow: var(--shadow-glow);
+    transition: transform 200ms var(--ease-soft), box-shadow 200ms var(--ease-soft);
+  }
+
+  .course-action-button:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-card-hover);
+  }
+
+  .course-action-button:active { transform: scale(0.97); }
+
+  .course-action-button__label {
+    position: relative;
+    z-index: 1;
+  }
+
+  .course-action-button__pill {
+    position: absolute;
+    inset-inline-end: 0.375rem;
+    top: 0.375rem;
+    display: flex;
+    height: 2.25rem;
+    width: 2.25rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    background: hsl(var(--card));
+    color: hsl(var(--primary));
+    transition: width 350ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .course-action-button:hover .course-action-button__pill { width: 3.625rem; }
+
+  .course-action-button__icon {
+    transition: transform 200ms var(--ease-soft);
+  }
+
+  .course-action-button:hover .course-action-button__icon {
+    animation: course-action-nudge 800ms ease-in-out infinite;
+  }
+
+  @keyframes course-action-nudge {
+    0%, 100% { transform: translateX(0); }
+    50% { transform: translateX(-4px); }
+  }
+
   @keyframes float-slow {
     0%, 100% { transform: translateY(0px); }
     50% { transform: translateY(-10px); }
