@@ -1,50 +1,57 @@
 import { BookOpen, Lock } from "lucide-react";
 import type { Course } from "@/data/courses";
 import CourseActionButton from "@/components/course/CourseActionButton";
+import { Button } from "@/components/ui/button";
+
+const courseCardTones = ["course-card--orange", "course-card--olive", "course-card--yellow"] as const;
+
+const getCourseCardTone = (courseId: string) => {
+  const hash = Array.from(courseId).reduce((total, character) => total + character.charCodeAt(0), 0);
+  return courseCardTones[hash % courseCardTones.length];
+};
 
 const CourseCard = ({ course }: { course: Course }) => {
   const Icon = course.icon;
   const locked = course.locked;
+  const tone = getCourseCardTone(course.id);
   return (
     <article
-      className={`group relative flex flex-col rounded-2xl border border-border bg-card p-6 shadow-card transition-all duration-300 ${
+      className={`course-card group relative flex h-full min-h-[21rem] flex-col overflow-hidden rounded-[20px] border border-border bg-card p-[22px] text-right shadow-card transition-all duration-300 ${tone} ${
         locked
           ? "opacity-75"
           : "hover:-translate-y-1 hover:border-primary/40 hover:shadow-card-hover"
       }`}
     >
+      <span className="course-card__shape" aria-hidden="true" />
       {course.accessTag === "selected" && (
-        <span className="absolute right-4 top-4 rounded-full bg-accent/40 px-3 py-1 text-[11px] font-semibold text-foreground ring-1 ring-accent/60">
+        <span className="absolute left-4 top-4 z-10 rounded-full bg-accent/40 px-3 py-1 text-[11px] font-semibold text-foreground ring-1 ring-accent/60">
           שיעורים נבחרים
         </span>
       )}
-      {/* Icon */}
-      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-        <Icon className="h-7 w-7 text-foreground/80" strokeWidth={1.5} />
+
+      <div className="course-card__icon relative flex h-14 w-14 items-center justify-center rounded-[18px]">
+        <Icon className="h-7 w-7" strokeWidth={1.8} />
       </div>
 
-      {/* Title + desc */}
-      <h3 className="mt-5 text-center text-xl font-bold text-foreground">{course.title}</h3>
-      <p className="mt-2 text-center text-sm leading-relaxed text-muted-foreground">
+      <h3 className="relative mt-4 text-xl font-bold text-foreground">{course.title}</h3>
+      <p className="relative mt-2 min-h-[2.625rem] text-sm leading-relaxed text-muted-foreground">
         {course.description}
       </p>
 
-      {/* Meta */}
-      <div className="mt-5 flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
+      <div className="relative mt-3 flex items-center gap-1.5 text-[13px] text-muted-foreground">
         <BookOpen className="h-4 w-4" strokeWidth={1.5} />
         <span>{course.lessons} שיעורים</span>
       </div>
 
-      {/* Action */}
-      <div className="mt-5">
+      <div className="relative mt-auto pt-5">
         {locked ? (
-          <button
+          <Button
             disabled
-            className="flex w-full items-center justify-center gap-2 rounded-full bg-muted px-5 py-3 text-sm font-medium text-muted-foreground cursor-not-allowed"
+            className="h-12 w-full cursor-not-allowed rounded-full bg-muted px-5 text-sm font-medium text-muted-foreground"
           >
             <Lock className="h-4 w-4" />
             אין לך גישה לקורס
-          </button>
+          </Button>
         ) : (
           <CourseActionButton to={`/course/${course.id}`}>
             כניסה לקורס
