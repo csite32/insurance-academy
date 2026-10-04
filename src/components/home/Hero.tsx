@@ -18,10 +18,12 @@ const Hero = () => {
           </p>
           <a
             href="#courses"
-            className="group mt-8 inline-flex items-center gap-2 rounded-full bg-gradient-primary px-7 py-3.5 text-base font-semibold text-primary-foreground shadow-glow transition-all duration-300 hover:-translate-y-0.5 hover:shadow-card-hover"
+            className="course-action-button group/course-action mt-8 inline-flex w-auto text-base font-semibold"
           >
-            לכל הקורסים
-            <ChevronLeft className="h-5 w-5 transition-transform group-hover:-translate-x-1" />
+            <span className="course-action-button__label">לכל הקורסים</span>
+            <span className="course-action-button__pill" aria-hidden="true">
+              <ChevronLeft className="course-action-button__icon" />
+            </span>
           </a>
         </div>
 
