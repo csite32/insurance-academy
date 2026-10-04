@@ -32,6 +32,8 @@ import {
   type CourseRow,
 } from "@/lib/courseRows";
 
+const courseCardTones = ["course-card--orange", "course-card--olive", "course-card--yellow"] as const;
+
 const Profile = () => {
   useAdminStoreHydration();
   const { user, loading: authLoading, uploadAvatar, removeAvatar } = useAuth();
