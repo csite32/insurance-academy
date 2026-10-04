@@ -10,7 +10,7 @@ type CourseActionButtonProps = {
 };
 
 const CourseActionButton = ({ to, children, className }: CourseActionButtonProps) => (
-  <Button asChild className={cn("course-action-button group/course-action", className)}>
+  <Button asChild className={cn("w-full course-action-button group/course-action", className)}>
     <Link to={to}>
       <span className="course-action-button__label">{children}</span>
       <span className="course-action-button__pill" aria-hidden="true">
