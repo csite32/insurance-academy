@@ -5,6 +5,7 @@ import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import { Switch } from "@/components/ui/switch";
 import {
   adminStore,
+  getNextCourseIconKey,
   useAdminStore,
   type AdminCourse,
   type LearningMode,
@@ -97,7 +98,10 @@ const AdminCourses = () => {
       toast({ title: "הקורס עודכן בהצלחה" });
       setEditing(null);
     } else {
-      adminStore.createCourse({ ...form, iconKey: "default" });
+      adminStore.createCourse({
+        ...form,
+        iconKey: getNextCourseIconKey(courses.map((course) => course.iconKey)),
+      });
       toast({ title: "קורס חדש נוצר" });
       setCreating(false);
     }
