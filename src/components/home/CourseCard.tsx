@@ -1,6 +1,6 @@
-import { ChevronLeft, BookOpen, Lock } from "lucide-react";
-import { Link } from "react-router-dom";
+import { BookOpen, Lock } from "lucide-react";
 import type { Course } from "@/data/courses";
+import CourseActionButton from "@/components/course/CourseActionButton";
 
 const CourseCard = ({ course }: { course: Course }) => {
   const Icon = course.icon;
@@ -46,13 +46,9 @@ const CourseCard = ({ course }: { course: Course }) => {
             אין לך גישה לקורס
           </button>
         ) : (
-          <Link
-            to={`/course/${course.id}`}
-            className="group/btn flex w-full items-center justify-center gap-2 rounded-full bg-gradient-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-glow transition-all duration-300 hover:brightness-110"
-          >
+          <CourseActionButton to={`/course/${course.id}`}>
             כניסה לקורס
-            <ChevronLeft className="h-4 w-4 transition-transform group-hover/btn:-translate-x-1" />
-          </Link>
+          </CourseActionButton>
         )}
       </div>
     </article>
