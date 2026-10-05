@@ -263,8 +263,23 @@
   .hero-line-mask {
     display: block;
     overflow: hidden;
-    padding-block: 0.12em;
-    margin-block: -0.12em;
+    padding-block: 0.1em;
+    margin-block: -0.1em;
+  }
+
+  /* Tighter stacking for the hero headline. Uses !important with a
+     body-prefixed selector so it beats the accessibility line-height rule
+     while still scaling with --a11y-line-height. */
+  body .hero-line-mask,
+  body .hero-line-rise {
+    line-height: calc(1.22 * var(--a11y-line-height)) !important;
+  }
+
+  @media (min-width: 640px) {
+    body .hero-line-mask,
+    body .hero-line-rise {
+      line-height: calc(1.02 * var(--a11y-line-height)) !important;
+    }
   }
 
   .hero-line-rise {
