@@ -125,6 +125,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
+  // Record "last activity" — throttled to once per 15 min (client + server). Failures are ignored.
+  useEffect(() => {
+    if (!user?.id) return;
+    const uid = user.id;
+    const INTERVAL = 15 * 60 * 1000;
+    const key = `last-activity-touch:${uid}`;
+    const touch = () => {
+      if (document.visibilityState === "hidden") return;
+      const last = Number(localStorage.getItem(key) || 0);
+      if (Date.now() - last < INTERVAL) return;
+      localStorage.setItem(key, String(Date.now()));
+      supabase.rpc("touch_last_activity").then(({ error }) => {
+        if (error) localStorage.removeItem(key);
+      }, () => localStorage.removeItem(key));
+    };
+    touch();
+    const timer = window.setInterval(touch, 60 * 1000);
+    document.addEventListener("visibilitychange", touch);
+    window.addEventListener("focus", touch);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", touch);
+      window.removeEventListener("focus", touch);
+    };
+  }, [user?.id]);
+
   // Refresh assignedLessons in realtime so per-lesson access updates without re-login.
   useEffect(() => {
     if (!user?.id) return;

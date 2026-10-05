@@ -8,6 +8,7 @@ export type DbUser = {
   email: string;
   avatarUrl: string | null;
   role: Role;
+  lastActivityAt: string | null;
 };
 
 type ProfileRow = {
@@ -15,6 +16,7 @@ type ProfileRow = {
   full_name: string;
   email: string;
   avatar_url: string | null;
+  last_activity_at?: string | null;
 };
 
 type RoleRow = {
@@ -42,6 +44,7 @@ export async function listUsers(): Promise<DbUser[]> {
     email: p.email,
     avatarUrl: p.avatar_url,
     role: roleMap.get(p.id) ?? "user",
+    lastActivityAt: p.last_activity_at ?? null,
   }));
 }
 
@@ -66,6 +69,7 @@ export async function getUser(id: string): Promise<DbUser | null> {
     email: p.email,
     avatarUrl: p.avatar_url,
     role: isAdmin ? "admin" : "user",
+    lastActivityAt: p.last_activity_at ?? null,
   };
 }
 
