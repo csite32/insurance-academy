@@ -239,13 +239,15 @@ const AdminUsers = () => {
                         >
                           <Pencil className="h-4 w-4" />
                         </button>
-                        <button
-                          onClick={() => setToDelete(u)}
-                          className="rounded-lg p-2 hover:bg-destructive/10 hover:text-destructive transition"
-                          aria-label="מחיקה"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        {u.email?.trim().toLowerCase() !== "c.site32@gmail.com" && (
+                          <button
+                            onClick={() => setToDelete(u)}
+                            className="rounded-lg p-2 hover:bg-destructive/10 hover:text-destructive transition"
+                            aria-label="מחיקה"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
