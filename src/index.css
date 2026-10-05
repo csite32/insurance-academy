@@ -272,7 +272,7 @@
      while still scaling with --a11y-line-height. */
   body .hero-line-mask,
   body .hero-line-rise {
-    line-height: calc(1.12 * var(--a11y-line-height)) !important;
+    line-height: calc(1.22 * var(--a11y-line-height)) !important;
   }
 
   @media (min-width: 640px) {
