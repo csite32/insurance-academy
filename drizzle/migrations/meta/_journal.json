@@ -8,6 +8,13 @@
       "when": 1791195856775,
       "tag": "0000_profiles_last_activity",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791196060995,
+      "tag": "0001_protect_last_activity",
+      "breakpoints": true
     }
   ]
 }
