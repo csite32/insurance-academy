@@ -72,6 +72,8 @@ export type AdminUser = {
   password: string;
   role: Role;
   avatarUrl?: string | null;
+  /** undefined = not loaded/unavailable, null = never signed in */
+  lastSignInAt?: string | null;
 };
 
 export type AdminAssignment = {
@@ -209,6 +211,19 @@ async function refreshLessons() {
     })),
   });
 }
+async function fetchLastSignIns(): Promise<Map<string, string | null> | null> {
+  try {
+    const { data, error } = await supabase.functions.invoke("admin-list-last-sign-in", {
+      body: {},
+    });
+    const list = (data as { users?: { id: string; lastSignInAt: string | null }[] })?.users;
+    if (error || !Array.isArray(list)) return null;
+    return new Map(list.map((u) => [u.id, u.lastSignInAt ?? null]));
+  } catch {
+    return null;
+  }
+}
+
 async function refreshUsers() {
   try {
     const data = await usersDb.listUsers();
@@ -225,7 +240,17 @@ async function refreshUsers() {
   } catch {
     // non-admin: cannot list users
     setState({ users: [] });
+    return;
   }
+  // Last sign-in is optional enrichment — failure never affects the list.
+  const signIns = await fetchLastSignIns();
+  if (!signIns) return;
+  setState({
+    users: state.users.map((u) => ({
+      ...u,
+      lastSignInAt: signIns.has(u.id) ? signIns.get(u.id)! : u.lastSignInAt,
+    })),
+  });
 }
 async function refreshAssignments() {
   try {

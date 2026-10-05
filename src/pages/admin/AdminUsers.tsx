@@ -207,8 +207,15 @@ const AdminUsers = () => {
                         <span>{u.fullName}</span>
                       </div>
                     </td>
-                    <td className="p-3 text-muted-foreground" dir="ltr">
-                      {u.email}
+                    <td className="p-3 text-muted-foreground">
+                      <div dir="ltr" className="text-right">{u.email}</div>
+                      {u.lastSignInAt !== undefined && (
+                        <div className="mt-0.5 text-[11px] text-muted-foreground/80">
+                          {u.lastSignInAt
+                            ? `כניסה אחרונה: ${formatLastSignIn(u.lastSignInAt)}`
+                            : "טרם התחבר"}
+                        </div>
+                      )}
                     </td>
                     <td className="p-3">
                       <span
