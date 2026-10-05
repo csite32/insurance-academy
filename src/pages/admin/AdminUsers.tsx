@@ -23,6 +23,20 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import AdminUserProgressDialog from "@/components/admin/AdminUserProgressDialog";
 
+const formatLastSignIn = (iso: string) => {
+  const parts = new Intl.DateTimeFormat("he-IL", {
+    timeZone: "Asia/Jerusalem",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(iso));
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+  return `${get("day")}.${get("month")}.${get("year")}, ${get("hour")}:${get("minute")}`;
+};
+
 const initials = (name: string) =>
   name
     .trim()
@@ -207,8 +221,15 @@ const AdminUsers = () => {
                         <span>{u.fullName}</span>
                       </div>
                     </td>
-                    <td className="p-3 text-muted-foreground" dir="ltr">
-                      {u.email}
+                    <td className="p-3 text-muted-foreground">
+                      <div dir="ltr" className="text-right">{u.email}</div>
+                      {u.lastSignInAt !== undefined && (
+                        <div className="mt-0.5 text-[11px] text-muted-foreground/80">
+                          {u.lastSignInAt
+                            ? `כניסה אחרונה: ${formatLastSignIn(u.lastSignInAt)}`
+                            : "טרם התחבר"}
+                        </div>
+                      )}
                     </td>
                     <td className="p-3">
                       <span
