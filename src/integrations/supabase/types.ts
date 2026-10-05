@@ -271,6 +271,7 @@ export type Database = {
           email: string
           full_name: string
           id: string
+          last_activity_at: string | null
           updated_at: string
         }
         Insert: {
@@ -279,6 +280,7 @@ export type Database = {
           email?: string
           full_name?: string
           id: string
+          last_activity_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -287,6 +289,7 @@ export type Database = {
           email?: string
           full_name?: string
           id?: string
+          last_activity_at?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -321,6 +324,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      touch_last_activity: { Args: never; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "user"
