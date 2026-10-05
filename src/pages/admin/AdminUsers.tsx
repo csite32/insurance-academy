@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { Plus, Pencil, Trash2, BarChart3 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Plus, Pencil, Trash2, BarChart3, Eye, EyeOff } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import {
@@ -97,6 +98,59 @@ const AdminUsers = () => {
       });
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const [newPw, setNewPw] = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
+  const [showPw, setShowPw] = useState(false);
+  const [showPw2, setShowPw2] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resetting, setResetting] = useState(false);
+
+  useEffect(() => {
+    setNewPw("");
+    setConfirmPw("");
+    setShowPw(false);
+    setShowPw2(false);
+    setResetError(null);
+  }, [editing]);
+
+  const resetPassword = async () => {
+    if (!editing) return;
+    if (!newPw) return setResetError("יש להזין סיסמה חדשה.");
+    if (!confirmPw) return setResetError("יש לאמת את הסיסמה החדשה.");
+    if (newPw.length < 8) return setResetError("הסיסמה חייבת להכיל לפחות 8 תווים.");
+    if (newPw !== confirmPw) return setResetError("הסיסמאות אינן תואמות.");
+    setResetError(null);
+    setResetting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-reset-password", {
+        body: { userId: editing.id, password: newPw },
+      });
+      if (error) {
+        let msg = "איפוס הסיסמה נכשל. נסה שוב.";
+        const ctx = (error as { context?: Response }).context;
+        if (ctx && typeof ctx.json === "function") {
+          try {
+            const b = await ctx.json();
+            if (b?.error) msg = b.error;
+          } catch {
+            /* ignore */
+          }
+        }
+        setResetError(msg);
+        return;
+      }
+      if (data?.error) {
+        setResetError(data.error);
+        return;
+      }
+      setNewPw("");
+      setConfirmPw("");
+      toast({ title: "הסיסמה עודכנה בהצלחה." });
+    } finally {
+      setResetting(false);
     }
   };
 
@@ -242,6 +296,57 @@ const AdminUsers = () => {
                 <option value="admin">מנהל</option>
               </select>
             </div>
+            {editing && (
+              <div className="space-y-3 border-t border-border pt-4">
+                <p className="text-sm font-semibold">איפוס סיסמה</p>
+                <div className="space-y-1.5">
+                  <Label>סיסמה חדשה</Label>
+                  <div className="relative">
+                    <Input
+                      type={showPw ? "text" : "password"}
+                      dir="ltr"
+                      autoComplete="new-password"
+                      value={newPw}
+                      onChange={(e) => setNewPw(e.target.value)}
+                      className="pl-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPw((v) => !v)}
+                      className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      aria-label={showPw ? "הסתרת סיסמה" : "הצגת סיסמה"}
+                    >
+                      {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>אימות סיסמה חדשה</Label>
+                  <div className="relative">
+                    <Input
+                      type={showPw2 ? "text" : "password"}
+                      dir="ltr"
+                      autoComplete="new-password"
+                      value={confirmPw}
+                      onChange={(e) => setConfirmPw(e.target.value)}
+                      className="pl-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPw2((v) => !v)}
+                      className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      aria-label={showPw2 ? "הסתרת סיסמה" : "הצגת סיסמה"}
+                    >
+                      {showPw2 ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+                {resetError && <p className="text-xs text-destructive">{resetError}</p>}
+                <Button variant="outline" onClick={resetPassword} disabled={resetting}>
+                  {resetting ? "מאפס..." : "איפוס סיסמה"}
+                </Button>
+              </div>
+            )}
           </div>
           <DialogFooter className="flex-row-reverse sm:justify-start gap-2">
             <Button onClick={submit} disabled={submitting}>
