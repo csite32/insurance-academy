@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, Pencil, Trash2, BarChart3, Eye, EyeOff } from "lucide-react";
+import { Plus, Pencil, Trash2, BarChart3, Eye, EyeOff, ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
@@ -107,13 +107,29 @@ const AdminUsers = () => {
   const [showPw2, setShowPw2] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
   const [resetting, setResetting] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
 
-  useEffect(() => {
+  const clearResetFields = () => {
     setNewPw("");
     setConfirmPw("");
     setShowPw(false);
     setShowPw2(false);
     setResetError(null);
+  };
+
+  const closeReset = () => {
+    setResetOpen(false);
+    clearResetFields();
+  };
+
+  const toggleReset = () => {
+    if (resetOpen) closeReset();
+    else setResetOpen(true);
+  };
+
+  useEffect(() => {
+    setResetOpen(false);
+    clearResetFields();
   }, [editing]);
 
   const resetPassword = async () => {
@@ -285,6 +301,93 @@ const AdminUsers = () => {
                 <p className="text-xs text-destructive">{errors.password}</p>
               )}
             </div>
+            {editing && (
+              <div className="space-y-1.5">
+                <button
+                  type="button"
+                  onClick={toggleReset}
+                  aria-expanded={resetOpen}
+                  className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+                >
+                  <ChevronDown
+                    className={`h-4 w-4 transition-transform duration-300 ${
+                      resetOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                  איפוס סיסמה
+                </button>
+                <div
+                  aria-hidden={!resetOpen}
+                  className={`grid transition-all duration-300 ease-out ${
+                    resetOpen
+                      ? "grid-rows-[1fr] opacity-100"
+                      : "grid-rows-[0fr] opacity-0"
+                  }`}
+                >
+                  <div
+                    className={`overflow-hidden transition-[visibility] duration-0 ${
+                      resetOpen ? "visible delay-0" : "invisible delay-300"
+                    }`}
+                  >
+                    <div className="space-y-3 border-t border-border pt-4">
+                      <div className="space-y-1.5">
+                        <Label>סיסמה חדשה</Label>
+                        <div className="relative">
+                          <Input
+                            type={showPw ? "text" : "password"}
+                            dir="ltr"
+                            autoComplete="new-password"
+                            value={newPw}
+                            onChange={(e) => setNewPw(e.target.value)}
+                            className="pl-10"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPw((v) => !v)}
+                            className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                            aria-label={showPw ? "הסתרת סיסמה" : "הצגת סיסמה"}
+                          >
+                            {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>אימות סיסמה חדשה</Label>
+                        <div className="relative">
+                          <Input
+                            type={showPw2 ? "text" : "password"}
+                            dir="ltr"
+                            autoComplete="new-password"
+                            value={confirmPw}
+                            onChange={(e) => setConfirmPw(e.target.value)}
+                            className="pl-10"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPw2((v) => !v)}
+                            className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                            aria-label={showPw2 ? "הסתרת סיסמה" : "הצגת סיסמה"}
+                          >
+                            {showPw2 ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                        </div>
+                      </div>
+                      {resetError && (
+                        <p className="text-xs text-destructive">{resetError}</p>
+                      )}
+                      <div className="flex gap-2">
+                        <Button variant="outline" onClick={resetPassword} disabled={resetting}>
+                          {resetting ? "מאפס..." : "איפוס סיסמה"}
+                        </Button>
+                        <Button variant="ghost" onClick={closeReset} disabled={resetting}>
+                          ביטול
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label>תפקיד</Label>
               <select
@@ -296,57 +399,6 @@ const AdminUsers = () => {
                 <option value="admin">מנהל</option>
               </select>
             </div>
-            {editing && (
-              <div className="space-y-3 border-t border-border pt-4">
-                <p className="text-sm font-semibold">איפוס סיסמה</p>
-                <div className="space-y-1.5">
-                  <Label>סיסמה חדשה</Label>
-                  <div className="relative">
-                    <Input
-                      type={showPw ? "text" : "password"}
-                      dir="ltr"
-                      autoComplete="new-password"
-                      value={newPw}
-                      onChange={(e) => setNewPw(e.target.value)}
-                      className="pl-10"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPw((v) => !v)}
-                      className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      aria-label={showPw ? "הסתרת סיסמה" : "הצגת סיסמה"}
-                    >
-                      {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label>אימות סיסמה חדשה</Label>
-                  <div className="relative">
-                    <Input
-                      type={showPw2 ? "text" : "password"}
-                      dir="ltr"
-                      autoComplete="new-password"
-                      value={confirmPw}
-                      onChange={(e) => setConfirmPw(e.target.value)}
-                      className="pl-10"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPw2((v) => !v)}
-                      className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      aria-label={showPw2 ? "הסתרת סיסמה" : "הצגת סיסמה"}
-                    >
-                      {showPw2 ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                </div>
-                {resetError && <p className="text-xs text-destructive">{resetError}</p>}
-                <Button variant="outline" onClick={resetPassword} disabled={resetting}>
-                  {resetting ? "מאפס..." : "איפוס סיסמה"}
-                </Button>
-              </div>
-            )}
           </div>
           <DialogFooter className="flex-row-reverse sm:justify-start gap-2">
             <Button onClick={submit} disabled={submitting}>
