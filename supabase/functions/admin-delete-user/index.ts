@@ -55,6 +55,12 @@ Deno.serve(async (req) => {
     return json({ error: "לא ניתן למחוק את החשבון שלך." }, 400);
   }
 
+  // Protection: the primary admin account can never be deleted.
+  const { data: targetUser, error: targetErr } = await admin.auth.admin.getUserById(userId);
+  if (!targetErr && targetUser?.user?.email?.trim().toLowerCase() === "c.site32@gmail.com") {
+    return json({ error: "לא ניתן למחוק את מנהל המערכת הראשי." }, 403);
+  }
+
   // 1. lesson_assignments has no FK to auth.users — delete explicitly.
   const { error: laErr } = await admin.from("lesson_assignments").delete().eq("user_id", userId);
   if (laErr) return json({ error: "מחיקת שיוכי השיעורים נכשלה. נסה שוב." }, 500);
