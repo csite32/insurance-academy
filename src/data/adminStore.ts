@@ -528,21 +528,33 @@ export const adminStore = {
   async deleteUser(id: string) {
     // Full deletion (auth user + linked data) via server-side admin function.
     const { supabase } = await import("@/integrations/supabase/client");
-    const { data, error } = await supabase.functions.invoke("admin-delete-user", {
-      body: { userId: id },
-    });
-    if (error || (data as { error?: string })?.error) {
-      let msg = (data as { error?: string })?.error;
-      if (!msg && error && "context" in error) {
+    const refreshAll = () =>
+      Promise.all([refreshUsers(), refreshAssignments(), refreshLessonAssignments()]).catch(
+        () => {}
+      );
+    let data: { success?: boolean; error?: string } | null = null;
+    let msg: string | undefined;
+    try {
+      const res = await supabase.functions.invoke("admin-delete-user", {
+        body: { userId: id },
+      });
+      data = res.data as typeof data;
+      msg = data?.error;
+      if (!msg && res.error && "context" in res.error) {
         try {
-          msg = (await (error as { context: Response }).context.json())?.error;
+          msg = (await (res.error as { context: Response }).context.json())?.error;
         } catch {
           /* ignore */
         }
       }
+    } catch {
+      /* network error — handled below */
+    }
+    if (data?.success !== true) {
+      await refreshAll();
       throw new Error(msg || "מחיקת המשתמש נכשלה. נסה שוב.");
     }
-    await Promise.all([refreshUsers(), refreshAssignments(), refreshLessonAssignments()]);
+    await refreshAll();
   },
 
   // ----- assignments -----
