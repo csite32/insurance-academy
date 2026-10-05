@@ -320,8 +320,8 @@ const AdminUsers = () => {
                   aria-hidden={!resetOpen}
                   className={`grid transition-all duration-300 ease-out ${
                     resetOpen
-                      ? "grid-template-rows-[1fr] opacity-100"
-                      : "grid-template-rows-[0fr] opacity-0"
+                      ? "grid-rows-[1fr] opacity-100"
+                      : "grid-rows-[0fr] opacity-0"
                   }`}
                 >
                   <div
