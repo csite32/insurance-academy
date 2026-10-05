@@ -7,10 +7,17 @@ const Hero = () => {
       <div className="container grid gap-10 py-12 lg:grid-cols-2 lg:gap-8 lg:py-20">
         {/* Text */}
         <div className="order-2 lg:order-1 flex flex-col items-start justify-center text-right animate-fade-up">
-          <h1 className="text-4xl font-bold leading-tight text-foreground sm:text-5xl lg:text-6xl">
-            האקדמיה הדיגיטלית
-            <br />
-            <span className="text-primary">לביטוח.</span>
+          <h1 className="text-4xl font-bold leading-[1.08] text-foreground sm:text-5xl lg:text-6xl">
+            <span className="hero-line-mask block">
+              <span className="hero-line-rise block" style={{ animationDelay: "0.05s" }}>
+                האקדמיה הדיגיטלית
+              </span>
+            </span>
+            <span className="hero-line-mask block">
+              <span className="hero-line-rise block text-primary" style={{ animationDelay: "0.22s" }}>
+                לביטוח.
+              </span>
+            </span>
           </h1>
           <p className="mt-6 max-w-lg text-base text-muted-foreground sm:text-lg">
             פלטפורמת הלמידה המתקדמת של מנדי גפנר סוכנות לביטוח — ידע מקצועי,

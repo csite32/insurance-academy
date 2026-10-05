@@ -258,6 +258,24 @@
   }
   .animate-float { animation: float-slow 6s ease-in-out infinite; }
   .animate-fade-up { animation: fade-up 0.7s var(--ease-soft) both; }
+
+  /* Hero headline — premium mask reveal */
+  .hero-line-mask {
+    display: block;
+    overflow: hidden;
+    padding-block: 0.12em;
+    margin-block: -0.12em;
+  }
+
+  .hero-line-rise {
+    animation: hero-line-rise 0.9s var(--ease-soft) both;
+    will-change: transform, opacity;
+  }
+
+  @keyframes hero-line-rise {
+    from { transform: translateY(115%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
 }
 
 /* =========================================================
