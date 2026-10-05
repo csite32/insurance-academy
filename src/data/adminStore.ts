@@ -526,15 +526,23 @@ export const adminStore = {
     await refreshUsers();
   },
   async deleteUser(id: string) {
-    // Best effort: removes the profile + role; auth user remains.
-    await Promise.all([
-      // delete role rows
-      usersDb.setUserRole(id, "user").catch(() => {}),
-    ]);
-    // delete profile (admin policy)
+    // Full deletion (auth user + linked data) via server-side admin function.
     const { supabase } = await import("@/integrations/supabase/client");
-    await supabase.from("profiles").delete().eq("id", id);
-    await Promise.all([refreshUsers(), refreshAssignments()]);
+    const { data, error } = await supabase.functions.invoke("admin-delete-user", {
+      body: { userId: id },
+    });
+    if (error || (data as { error?: string })?.error) {
+      let msg = (data as { error?: string })?.error;
+      if (!msg && error && "context" in error) {
+        try {
+          msg = (await (error as { context: Response }).context.json())?.error;
+        } catch {
+          /* ignore */
+        }
+      }
+      throw new Error(msg || "מחיקת המשתמש נכשלה. נסה שוב.");
+    }
+    await Promise.all([refreshUsers(), refreshAssignments(), refreshLessonAssignments()]);
   },
 
   // ----- assignments -----

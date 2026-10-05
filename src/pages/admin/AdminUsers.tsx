@@ -421,12 +421,25 @@ const AdminUsers = () => {
         open={!!toDelete}
         onOpenChange={(v) => !v && setToDelete(null)}
         title="האם למחוק את המשתמש?"
-        description={toDelete ? `המשתמש "${toDelete.fullName}" יימחק.` : undefined}
-        onConfirm={() => {
+        description={
+          toDelete
+            ? `מחיקת המשתמש "${toDelete.fullName}" תמחק לצמיתות את החשבון, השיוכים וההתקדמות שלו. לא ניתן לבטל פעולה זו. האם להמשיך?`
+            : undefined
+        }
+        onConfirm={async () => {
           if (toDelete) {
-            adminStore.deleteUser(toDelete.id);
-            toast({ title: "המשתמש נמחק" });
+            const target = toDelete;
             setToDelete(null);
+            try {
+              await adminStore.deleteUser(target.id);
+              toast({ title: "המשתמש נמחק לצמיתות" });
+            } catch (e) {
+              toast({
+                title: "המחיקה נכשלה",
+                description: e instanceof Error ? e.message : "נסה שוב.",
+                variant: "destructive",
+              });
+            }
           }
         }}
       />
