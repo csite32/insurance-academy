@@ -126,28 +126,12 @@ Deno.serve(async (req) => {
     }
 
     if (!isAdmin) {
-      const { data: laRow } = await admin
-        .from("lesson_assignments")
-        .select("lesson_id")
-        .eq("user_id", userId)
-        .eq("lesson_id", lessonId)
-        .maybeSingle();
-      const hasLessonAssignment = !!laRow;
-
-      let allowed = false;
-      if (lesson.is_locked) {
-        allowed = hasLessonAssignment;
-      } else if (hasLessonAssignment) {
-        allowed = true;
-      } else {
-        const { data: aRow } = await admin
-          .from("assignments")
-          .select("course_id")
-          .eq("user_id", userId)
-          .eq("course_id", lesson.course_id)
-          .maybeSingle();
-        allowed = !!aRow;
-      }
+      // Union of direct assignments and bundle memberships (same rules as lessons RLS).
+      const [{ data: hasLesson }, { data: hasCourse }] = await Promise.all([
+        admin.rpc("user_has_lesson", { _user_id: userId, _lesson_id: lessonId }),
+        admin.rpc("user_has_course", { _user_id: userId, _course_id: lesson.course_id }),
+      ]);
+      const allowed = lesson.is_locked ? hasLesson === true : hasLesson === true || hasCourse === true;
       if (!allowed) return json({ error: "Forbidden" }, 200);
     }
 

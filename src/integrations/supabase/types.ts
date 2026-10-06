@@ -40,6 +40,94 @@ export type Database = {
           },
         ]
       }
+      bundle_courses: {
+        Row: {
+          bundle_id: string
+          course_id: string
+        }
+        Insert: {
+          bundle_id: string
+          course_id: string
+        }
+        Update: {
+          bundle_id?: string
+          course_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bundle_courses_bundle_id_fkey"
+            columns: ["bundle_id"]
+            isOneToOne: false
+            referencedRelation: "bundles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bundle_courses_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bundle_lessons: {
+        Row: {
+          bundle_id: string
+          course_id: string
+          lesson_id: string
+        }
+        Insert: {
+          bundle_id: string
+          course_id: string
+          lesson_id: string
+        }
+        Update: {
+          bundle_id?: string
+          course_id?: string
+          lesson_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bundle_lessons_bundle_id_fkey"
+            columns: ["bundle_id"]
+            isOneToOne: false
+            referencedRelation: "bundles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bundle_lessons_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bundle_lessons_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bundles: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       chapters: {
         Row: {
           course_id: string
@@ -294,6 +382,32 @@ export type Database = {
         }
         Relationships: []
       }
+      user_bundles: {
+        Row: {
+          bundle_id: string
+          created_at: string
+          user_id: string
+        }
+        Insert: {
+          bundle_id: string
+          created_at?: string
+          user_id: string
+        }
+        Update: {
+          bundle_id?: string
+          created_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_bundles_bundle_id_fkey"
+            columns: ["bundle_id"]
+            isOneToOne: false
+            referencedRelation: "bundles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
@@ -324,7 +438,19 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_bundle_member: {
+        Args: { _bundle_id: string; _user_id: string }
+        Returns: boolean
+      }
       touch_last_activity: { Args: never; Returns: undefined }
+      user_has_course: {
+        Args: { _course_id: string; _user_id: string }
+        Returns: boolean
+      }
+      user_has_lesson: {
+        Args: { _lesson_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "user"
