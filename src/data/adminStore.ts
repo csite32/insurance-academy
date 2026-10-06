@@ -26,6 +26,8 @@ import type { QuizData } from "@/lib/db/lessonsDb";
 import * as usersDb from "@/lib/db/usersDb";
 import * as assignmentsDb from "@/lib/db/assignmentsDb";
 import * as lessonAssignmentsDb from "@/lib/db/lessonAssignmentsDb";
+import * as bundlesDb from "@/lib/db/bundlesDb";
+import type { DbBundle, DbUserBundle } from "@/lib/db/bundlesDb";
 import { supabase } from "@/integrations/supabase/client";
 
 export type LearningMode = "sequential" | "free" | "chapter_sequential";
@@ -94,6 +96,8 @@ type StoreState = {
   users: AdminUser[];
   assignments: AdminAssignment[];
   lessonAssignments: AdminLessonAssignment[];
+  bundles: DbBundle[];
+  userBundles: DbUserBundle[];
 };
 
 const ICONS: Record<string, LucideIcon> = {
@@ -141,6 +145,8 @@ let state: StoreState = {
   users: [],
   assignments: [],
   lessonAssignments: [],
+  bundles: [],
+  userBundles: [],
 };
 const listeners = new Set<() => void>();
 
@@ -247,6 +253,17 @@ async function refreshLessonAssignments() {
     setState({ lessonAssignments: [] });
   }
 }
+async function refreshBundles() {
+  try {
+    const [bundles, userBundles] = await Promise.all([
+      bundlesDb.listBundles(),
+      bundlesDb.listUserBundles(),
+    ]);
+    setState({ bundles, userBundles });
+  } catch {
+    setState({ bundles: [], userBundles: [] });
+  }
+}
 
 async function hydrateAll() {
   await Promise.all([
@@ -256,6 +273,7 @@ async function hydrateAll() {
     refreshUsers().catch(() => {}),
     refreshAssignments().catch(() => {}),
     refreshLessonAssignments().catch(() => {}),
+    refreshBundles().catch(() => {}),
   ]);
 }
 
@@ -272,6 +290,7 @@ function startSubscriptions() {
       () => void refreshLessonAssignments().catch(() => {})
     )
   );
+  unsubAll.push(bundlesDb.subscribeBundles(() => void refreshBundles().catch(() => {})));
 }
 
 export async function ensureHydrated(): Promise<void> {
@@ -332,6 +351,8 @@ function startAuthListener() {
         users: [],
         assignments: [],
         lessonAssignments: [],
+        bundles: [],
+        userBundles: [],
       });
       return;
     }
@@ -592,6 +613,26 @@ export const adminStore = {
       lessonAssignmentsDb.setLessonAssignmentsForUser(userId, lessonIds),
     ]);
     await Promise.all([refreshAssignments(), refreshLessonAssignments()]);
+  },
+
+  // ----- bundles (independent from direct assignments) -----
+  async saveBundle(input: {
+    id?: string;
+    name: string;
+    courseIds: string[];
+    lessons: { courseId: string; lessonId: string }[];
+  }) {
+    const id = await bundlesDb.saveBundle(input);
+    await refreshBundles();
+    return id;
+  },
+  async deleteBundle(id: string) {
+    await bundlesDb.deleteBundle(id);
+    await refreshBundles();
+  },
+  async setUserBundles(userId: string, bundleIds: string[]) {
+    await bundlesDb.setUserBundles(userId, bundleIds);
+    await refreshBundles();
   },
 
   // Legacy auth helpers — unused now (AuthContext uses supabase.auth)

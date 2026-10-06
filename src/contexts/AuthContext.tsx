@@ -6,6 +6,7 @@ import {
   listLessonAssignmentsForUser,
   subscribeLessonAssignments,
 } from "@/lib/db/lessonAssignmentsDb";
+import { listBundles, listUserBundles, bundleGrants, subscribeBundles } from "@/lib/db/bundlesDb";
 import { uploadAvatar as uploadAvatarDb, removeAvatar as removeAvatarDb } from "@/lib/db/usersDb";
 
 export type Role = "user" | "admin";
@@ -36,6 +37,25 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+// Effective access = direct courses ∪ direct lessons ∪ bundle content.
+async function loadBundleGrants(userId: string) {
+  try {
+    const [bundles, memberships] = await Promise.all([listBundles(), listUserBundles(userId)]);
+    return bundleGrants(bundles, memberships.map((m) => m.bundleId));
+  } catch {
+    return { courses: new Set<string>(), lessons: [] as { courseId: string; lessonId: string }[] };
+  }
+}
+
+function mergeLessons(
+  a: { courseId: string; lessonId: string }[],
+  b: { courseId: string; lessonId: string }[]
+) {
+  const m = new Map<string, { courseId: string; lessonId: string }>();
+  [...a, ...b].forEach((l) => m.set(l.lessonId, { courseId: l.courseId, lessonId: l.lessonId }));
+  return [...m.values()];
+}
+
 async function hydrateUser(userId: string): Promise<AuthUser | null> {
   const [{ data: profile, error: pErr }, { data: roles, error: rErr }, assigned, lessonAssigned] =
     await Promise.all([
@@ -50,6 +70,7 @@ async function hydrateUser(userId: string): Promise<AuthUser | null> {
         () => [] as { courseId: string; lessonId: string }[]
       ),
     ]);
+  const grants = await loadBundleGrants(userId);
   if (pErr) {
     console.error("[auth] profile fetch error", pErr);
   }
@@ -63,11 +84,8 @@ async function hydrateUser(userId: string): Promise<AuthUser | null> {
     fullName: profile.full_name ?? "",
     email: profile.email ?? "",
     role: isAdmin ? "admin" : "user",
-    assignedCourses: assigned,
-    assignedLessons: (lessonAssigned ?? []).map((la) => ({
-      courseId: la.courseId,
-      lessonId: la.lessonId,
-    })),
+    assignedCourses: [...new Set([...assigned, ...grants.courses])],
+    assignedLessons: mergeLessons(lessonAssigned ?? [], grants.lessons),
     completedLessons: [],
     lastViewedLesson: null,
     progress: 0,
@@ -155,24 +173,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (!user?.id) return;
     const uid = user.id;
-    const unsub = subscribeLessonAssignments(() => {
-      listLessonAssignmentsForUser(uid)
-        .then((rows) => {
+    const refreshAccess = () => {
+      Promise.all([
+        listAssignmentsForUser(uid).catch(() => null),
+        listLessonAssignmentsForUser(uid),
+        loadBundleGrants(uid),
+      ])
+        .then(([courses, rows, grants]) => {
           setUser((prev) =>
             prev && prev.id === uid
               ? {
                   ...prev,
-                  assignedLessons: rows.map((la) => ({
-                    courseId: la.courseId,
-                    lessonId: la.lessonId,
-                  })),
+                  assignedCourses: [
+                    ...new Set([...(courses ?? prev.assignedCourses), ...grants.courses]),
+                  ],
+                  assignedLessons: mergeLessons(rows, grants.lessons),
                 }
               : prev
           );
         })
         .catch(() => {});
-    });
-    return unsub;
+    };
+    const unsub = subscribeLessonAssignments(refreshAccess);
+    const unsubBundles = subscribeBundles(refreshAccess);
+    return () => {
+      unsub();
+      unsubBundles();
+    };
   }, [user?.id]);
 
   const login = async (email: string, password: string) => {

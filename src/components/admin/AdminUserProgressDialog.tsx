@@ -80,12 +80,24 @@ const AdminUserProgressDialog = ({ userId, userName, userRole, onClose }: Props)
 
   const rows: CourseRow[] = useMemo(() => {
     if (!userId) return [];
-    const assignedCourses = assignments
-      .filter((a) => a.userId === userId)
-      .map((a) => a.courseId);
-    const assignedLessons = lessonAssignments
-      .filter((la) => la.userId === userId)
-      .map((la) => ({ courseId: la.courseId, lessonId: la.lessonId }));
+    const grants = bundleGrants(
+      bundles,
+      userBundles.filter((ub) => ub.userId === userId).map((ub) => ub.bundleId)
+    );
+    const assignedCourses = [
+      ...new Set([
+        ...assignments.filter((a) => a.userId === userId).map((a) => a.courseId),
+        ...grants.courses,
+      ]),
+    ];
+    const lessonMap = new Map<string, { courseId: string; lessonId: string }>();
+    [
+      ...lessonAssignments
+        .filter((la) => la.userId === userId)
+        .map((la) => ({ courseId: la.courseId, lessonId: la.lessonId })),
+      ...grants.lessons,
+    ].forEach((l) => lessonMap.set(l.lessonId, l));
+    const assignedLessons = [...lessonMap.values()];
     const progressByCourse = new Map<string, ProgressSnapshot>();
     for (const r of progressRows) {
       const cur = progressByCourse.get(r.courseId) ?? {
@@ -114,7 +126,7 @@ const AdminUserProgressDialog = ({ userId, userName, userRole, onClose }: Props)
       isAdmin: userRole === "admin",
       getProgress: (courseId) => progressByCourse.get(courseId) ?? null,
     });
-  }, [userId, userRole, courses, lessons, assignments, lessonAssignments, progressRows, lastViewedByCourse]);
+  }, [userId, userRole, courses, lessons, assignments, lessonAssignments, bundles, userBundles, progressRows, lastViewedByCourse]);
 
   const lessonTitleById = useMemo(() => {
     const m = new Map<string, string>();
