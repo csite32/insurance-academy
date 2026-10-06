@@ -13,6 +13,8 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
+import { bundleGrants } from "@/lib/db/bundlesDb";
+import BundlesManager from "@/components/admin/BundlesManager";
 
 type Mode = "full" | "partial" | "none";
 
@@ -23,6 +25,11 @@ const AdminAssignments = () => {
   const lessons = useAdminStore((s) => s.lessons);
   const assignments = useAdminStore((s) => s.assignments);
   const lessonAssignments = useAdminStore((s) => s.lessonAssignments);
+  const bundles = useAdminStore((s) => s.bundles);
+  const userBundles = useAdminStore((s) => s.userBundles);
+  const [tab, setTab] = useState<"users" | "bundles">("users");
+  const [draftBundles, setDraftBundles] = useState<Set<string>>(new Set());
+  const [initialBundles, setInitialBundles] = useState<Set<string>>(new Set());
 
   const [userId, setUserId] = useState<string>("");
   const [draftFullCourses, setDraftFullCourses] = useState<Set<string>>(new Set());
@@ -70,6 +77,20 @@ const AdminAssignments = () => {
     setInitialLessons(single);
   }, [userId, assignments, lessonAssignments]);
 
+  // Bundle memberships are a separate source — hydrated independently.
+  useEffect(() => {
+    const ids = new Set(
+      userId ? userBundles.filter((ub) => ub.userId === userId).map((ub) => ub.bundleId) : []
+    );
+    setDraftBundles(new Set(ids));
+    setInitialBundles(ids);
+  }, [userId, userBundles]);
+
+  const grants = useMemo(() => {
+    const g = bundleGrants(bundles, [...draftBundles]);
+    return { courses: g.courses, lessons: new Set(g.lessons.map((l) => l.lessonId)) };
+  }, [bundles, draftBundles]);
+
   const lessonsByCourse = useMemo(() => {
     const m = new Map<string, typeof lessons>();
     for (const l of lessons) {
@@ -97,10 +118,10 @@ const AdminAssignments = () => {
     return anySelected ? "partial" : "none";
   };
 
-  const isDirty =
-    userId !== "" &&
-    (setsDiffer(draftFullCourses, initialFullCourses) ||
-      setsDiffer(draftLessons, initialLessons));
+  const directDirty =
+    setsDiffer(draftFullCourses, initialFullCourses) || setsDiffer(draftLessons, initialLessons);
+  const bundlesDirty = setsDiffer(draftBundles, initialBundles);
+  const isDirty = userId !== "" && (directDirty || bundlesDirty);
 
   const toggleOpen = (courseId: string) => {
     setOpenCourses((prev) => {
@@ -155,6 +176,7 @@ const AdminAssignments = () => {
   const cancel = () => {
     setDraftFullCourses(new Set(initialFullCourses));
     setDraftLessons(new Set(initialLessons));
+    setDraftBundles(new Set(initialBundles));
   };
 
   const save = async () => {
@@ -168,10 +190,16 @@ const AdminAssignments = () => {
         if (!l) return false;
         return !draftFullCourses.has(l.courseId);
       });
-      await adminStore.saveUserAssignments(userId, {
-        fullCourses,
-        lessons: lessonsToPersist,
-      });
+      // Each source is saved only if it changed, so one never overwrites the other.
+      if (directDirty) {
+        await adminStore.saveUserAssignments(userId, {
+          fullCourses,
+          lessons: lessonsToPersist,
+        });
+      }
+      if (bundlesDirty) {
+        await adminStore.setUserBundles(userId, Array.from(draftBundles));
+      }
       toast({ title: "השיוכים נשמרו" });
     } catch (e) {
       toast({
@@ -186,6 +214,26 @@ const AdminAssignments = () => {
 
   return (
     <AdminLayout title="שיוך קורסים" subtitle="הקצאת קורסים ושיעורים בודדים למשתמשים">
+      <div className="mb-6 inline-flex rounded-xl border border-border bg-card p-1">
+        {([
+          ["users", "שיוך למשתמש"],
+          ["bundles", "ניהול קומבינציות"],
+        ] as const).map(([k, label]) => (
+          <button
+            key={k}
+            type="button"
+            onClick={() => setTab(k)}
+            className={`rounded-lg px-4 py-1.5 text-sm font-medium transition ${
+              tab === k ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {tab === "bundles" ? (
+        <BundlesManager />
+      ) : (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: user picker + actions */}
         <div className="rounded-2xl border border-border bg-card p-5 shadow-card lg:col-span-1 self-start">
@@ -277,7 +325,39 @@ const AdminAssignments = () => {
           {userId && (
             <p className="mt-3 text-xs text-muted-foreground">
               {summarize(draftFullCourses.size, countLessonsExcludingFull(draftLessons, draftFullCourses, lessons))}
+              {draftBundles.size > 0 && ` · ${draftBundles.size} קומבינציות`}
             </p>
+          )}
+
+          {userId && (
+            <div className="mt-5 border-t border-border pt-4">
+              <Label>קומבינציות</Label>
+              {bundles.length === 0 ? (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  אין עדיין קומבינציות. אפשר ליצור אותן ב"ניהול קומבינציות".
+                </p>
+              ) : (
+                <ul className="mt-2 space-y-1">
+                  {bundles.map((b) => (
+                    <li key={b.id} className="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-accent/50">
+                      <Checkbox
+                        checked={draftBundles.has(b.id)}
+                        onCheckedChange={(v) =>
+                          setDraftBundles((prev) => {
+                            const n = new Set(prev);
+                            if (v === true) n.add(b.id);
+                            else n.delete(b.id);
+                            return n;
+                          })
+                        }
+                        aria-label={`שייך קומבינציה ${b.name}`}
+                      />
+                      <span className="text-sm">{b.name}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           )}
         </div>
 
@@ -323,6 +403,7 @@ const AdminAssignments = () => {
                           {c.description}
                         </p>
                       </div>
+                      {grants.courses.has(c.id) && <ViaBundleBadge />}
                       <ModeBadge mode={mode} />
                       <CollapsibleTrigger asChild>
                         <Button
@@ -417,6 +498,10 @@ const AdminAssignments = () => {
                                             aria-label={`שייך את ${l.title}`}
                                           />
                                           <span className="text-sm">{l.title}</span>
+                                          {(grants.lessons.has(l.id) ||
+                                            (grants.courses.has(c.id) && !l.isLocked)) && (
+                                            <ViaBundleBadge />
+                                          )}
                                         </li>
                                       );
                                     })}
@@ -435,9 +520,18 @@ const AdminAssignments = () => {
           )}
         </div>
       </div>
+      )}
     </AdminLayout>
   );
 };
+
+function ViaBundleBadge() {
+  return (
+    <Badge variant="outline" className="shrink-0 border-primary/40 text-[10px] text-primary">
+      דרך קומבינציה
+    </Badge>
+  );
+}
 
 function ModeBadge({ mode }: { mode: Mode }) {
   if (mode === "full") {
