@@ -15,6 +15,13 @@
       "when": 1791196060995,
       "tag": "0001_protect_last_activity",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791267339022,
+      "tag": "0002_bundles",
+      "breakpoints": true
     }
   ]
 }
