@@ -7,6 +7,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useAdminStore } from "@/data/adminStore";
+import { bundleGrants } from "@/lib/db/bundlesDb";
 import {
   computeUserCourseRows,
   statusClasses,
@@ -34,6 +35,8 @@ const AdminUserProgressDialog = ({ userId, userName, userRole, onClose }: Props)
   const lessons = useAdminStore((s) => s.lessons);
   const assignments = useAdminStore((s) => s.assignments);
   const lessonAssignments = useAdminStore((s) => s.lessonAssignments);
+  const bundles = useAdminStore((s) => s.bundles);
+  const userBundles = useAdminStore((s) => s.userBundles);
 
   const [loading, setLoading] = useState(false);
   const [progressRows, setProgressRows] = useState<DbLessonProgress[]>([]);
