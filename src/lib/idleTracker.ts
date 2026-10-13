@@ -1,7 +1,6 @@
 // Shared, per-browser idle tracking. One timestamp in localStorage is shared by all tabs.
-// TEMPORARY test values — restore to 30 / 29 minutes after Vimeo testing.
-export const IDLE_LIMIT_MS = 2 * 60 * 1000;
-export const IDLE_WARN_MS = 1 * 60 * 1000;
+export const IDLE_LIMIT_MS = 30 * 60 * 1000;
+export const IDLE_WARN_MS = 29 * 60 * 1000;
 
 const KEY = "idle:last-activity";
 const WRITE_THROTTLE_MS = 5000;

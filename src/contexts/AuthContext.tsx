@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode, Context } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { listAssignmentsForUser } from "@/lib/db/assignmentsDb";
@@ -36,7 +36,17 @@ type AuthContextValue = {
   refreshUser: () => Promise<void>;
 };
 
-const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+// If this module is re-executed (dev hot reload), reuse the identical context object.
+// A second createContext() would leave already-mounted consumers reading a different
+// context and blank the whole screen with "useAuth must be used inside AuthProvider".
+const AUTH_CONTEXT_KEY = Symbol.for("app:auth-context");
+type AuthContextHolder = { context?: Context<AuthContextValue | undefined> };
+const authContextHolder: AuthContextHolder =
+  (globalThis as Record<symbol, AuthContextHolder | undefined>)[AUTH_CONTEXT_KEY] ??
+  ((globalThis as Record<symbol, AuthContextHolder | undefined>)[AUTH_CONTEXT_KEY] = {});
+const AuthContext =
+  authContextHolder.context ??
+  (authContextHolder.context = createContext<AuthContextValue | undefined>(undefined));
 
 // Effective access = direct courses ∪ direct lessons ∪ bundle content.
 async function loadBundleGrants(userId: string) {
