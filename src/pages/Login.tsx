@@ -1,5 +1,5 @@
 import { useState, FormEvent, useEffect } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,9 @@ const REMEMBER_KEY = "auth.rememberedCredentials";
 const Login = () => {
   const { user, login } = useAuth();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const idleLoggedOut =
+    params.get("idle") === "1" || sessionStorage.getItem("idle:logged-out") === "1";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(true);
@@ -45,6 +48,7 @@ const Login = () => {
     setSubmitting(true);
     const res = await login(email, password);
     setSubmitting(false);
+    if (res.ok) sessionStorage.removeItem("idle:logged-out");
     if (!res.ok) {
       setError(res.error ?? "שגיאה בהתחברות");
       return;
@@ -99,6 +103,11 @@ const Login = () => {
             </p>
           </div>
 
+          {idleLoggedOut && mode === "login" && (
+            <p role="status" className="mb-5 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-center text-sm text-foreground">
+              נותקת עקב חוסר פעילות. יש להתחבר מחדש.
+            </p>
+          )}
           {mode === "login" ? (
           <form onSubmit={onSubmit} className="space-y-5">
             <div className="space-y-2">

@@ -19,6 +19,7 @@ import AdminAssignments from "./pages/admin/AdminAssignments.tsx";
 import AdminProtectedRoute from "./components/admin/AdminProtectedRoute";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
+import IdleGuard from "./components/auth/IdleGuard";
 import AccessibilityWidget from "./components/accessibility/AccessibilityWidget";
 
 const queryClient = new QueryClient();
@@ -31,6 +32,7 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <AccessibilityWidget />
+          <IdleGuard />
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/reset-password" element={<ResetPassword />} />
