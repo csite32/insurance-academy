@@ -14,7 +14,8 @@ const Login = () => {
   const { user, login } = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const idleLoggedOut = params.get("idle") === "1";
+  const idleLoggedOut =
+    params.get("idle") === "1" || sessionStorage.getItem("idle:logged-out") === "1";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(true);
@@ -47,6 +48,7 @@ const Login = () => {
     setSubmitting(true);
     const res = await login(email, password);
     setSubmitting(false);
+    if (res.ok) sessionStorage.removeItem("idle:logged-out");
     if (!res.ok) {
       setError(res.error ?? "שגיאה בהתחברות");
       return;

@@ -49,6 +49,7 @@ const IdleGuard = () => {
       loggingOut.current = true;
       setRemaining(null);
       if (broadcast) localStorage.setItem(LOGOUT_KEY, String(Date.now()));
+      sessionStorage.setItem("idle:logged-out", "1");
       try {
         await logout({ local: true });
       } finally {
