@@ -50,7 +50,7 @@ const IdleGuard = () => {
       setRemaining(null);
       if (broadcast) localStorage.setItem(LOGOUT_KEY, String(Date.now()));
       try {
-        await logout();
+        await logout({ local: true });
       } finally {
         navigate("/login?idle=1", { replace: true });
       }

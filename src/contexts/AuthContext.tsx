@@ -7,6 +7,7 @@ import {
   subscribeLessonAssignments,
 } from "@/lib/db/lessonAssignmentsDb";
 import { listBundles, listUserBundles, bundleGrants, subscribeBundles } from "@/lib/db/bundlesDb";
+import { clearActivity, isIdleExpired, onActivity, resetActivity } from "@/lib/idleTracker";
 import { uploadAvatar as uploadAvatarDb, removeAvatar as removeAvatarDb } from "@/lib/db/usersDb";
 
 export type Role = "user" | "admin";
@@ -29,7 +30,7 @@ type AuthContextValue = {
   session: Session | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
-  logout: () => Promise<void>;
+  logout: (opts?: { local?: boolean }) => Promise<void>;
   uploadAvatar: (file: File) => Promise<void>;
   removeAvatar: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -100,9 +101,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     let cancelled = false;
+    // A recovery link is a fresh, intentional sign-in — never treat it as stale.
+    if (window.location.pathname === "/reset-password" || window.location.hash.includes("type=recovery")) {
+      resetActivity();
+    }
 
     // 1. Set up listener FIRST (sync only — defer DB calls)
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (event === "PASSWORD_RECOVERY") resetActivity();
+      if (nextSession?.user && isIdleExpired()) {
+        // Idle limit passed while away — end this device's session, never expose content.
+        setSession(null);
+        setUser(null);
+        setTimeout(() => void supabase.auth.signOut({ scope: "local" }), 0);
+        return;
+      }
       setSession(nextSession);
       if (!nextSession?.user) {
         setUser(null);
@@ -122,6 +135,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // 2. Then check existing session
     supabase.auth.getSession().then(({ data }) => {
       if (cancelled) return;
+      if (data.session?.user && isIdleExpired()) {
+        supabase.auth.signOut({ scope: "local" }).finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+        return;
+      }
       setSession(data.session);
       if (data.session?.user) {
         hydrateUser(data.session.user.id)
@@ -143,14 +162,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
-  // Record "last activity" — throttled to once per 15 min (client + server). Failures are ignored.
+  // Record "last activity" only after real activity — throttled to once per 15 min (client + server).
   useEffect(() => {
     if (!user?.id) return;
     const uid = user.id;
     const INTERVAL = 15 * 60 * 1000;
     const key = `last-activity-touch:${uid}`;
     const touch = () => {
-      if (document.visibilityState === "hidden") return;
       const last = Number(localStorage.getItem(key) || 0);
       if (Date.now() - last < INTERVAL) return;
       localStorage.setItem(key, String(Date.now()));
@@ -158,15 +176,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (error) localStorage.removeItem(key);
       }, () => localStorage.removeItem(key));
     };
-    touch();
-    const timer = window.setInterval(touch, 60 * 1000);
-    document.addEventListener("visibilitychange", touch);
-    window.addEventListener("focus", touch);
-    return () => {
-      window.clearInterval(timer);
-      document.removeEventListener("visibilitychange", touch);
-      window.removeEventListener("focus", touch);
-    };
+    return onActivity(touch);
   }, [user?.id]);
 
   // Refresh assignedLessons in realtime so per-lesson access updates without re-login.
@@ -203,6 +213,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [user?.id]);
 
   const login = async (email: string, password: string) => {
+    resetActivity();
     const { error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password,
@@ -216,8 +227,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { ok: true };
   };
 
-  const logout = async () => {
-    await supabase.auth.signOut();
+  const logout = async (opts?: { local?: boolean }) => {
+    clearActivity();
+    await supabase.auth.signOut(opts?.local ? { scope: "local" } : undefined).catch(() => {});
     setUser(null);
     setSession(null);
   };
